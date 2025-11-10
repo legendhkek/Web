@@ -33,8 +33,12 @@ if (!$user) {
 }
 
 // Check if user has enough credits (1 credit per check)
+// Skip credit check for owners
 $current_credits = intval($user['credits'] ?? 0);
-if ($current_credits < 1) {
+$owner_ids = AppConfig::OWNER_IDS;
+$is_owner = in_array($telegram_id, $owner_ids);
+
+if (!$is_owner && $current_credits < 1) {
     echo json_encode([
         'error' => true,
         'message' => 'Insufficient credits. You need at least 1 credit to perform a check.',
@@ -202,33 +206,38 @@ if ($curl_error) {
                 $response_data['is_valid_site'] = false;
             }
             
-            // Deduct 1 credit for the site check
-            $credit_deducted = $db->deductCredits($telegram_id, 1);
-            if ($credit_deducted) {
-                $response_data['credits_deducted'] = 1;
-                $response_data['remaining_credits'] = $current_credits - 1;
-                
-                // Log the tool usage
-                try {
-                    if (method_exists($db, 'logToolUsage')) {
-                        $db->logToolUsage($telegram_id, 'site_checker', 1, 1);
-                    }
-                } catch (Exception $e) {
-                    error_log("Failed to log tool usage: " . $e->getMessage());
-                }
-
-                // Telegram notification (default ON)
-                if (function_exists('sendTelegramHtml') && SiteConfig::get('notify_site_check', true)) {
-                    $statusTxt = $response_data['is_valid_site'] ? 'VALID' : 'INVALID';
-                    $notif = "🌐 <b>Site Check</b>\n\n" .
-                            "👤 <b>User ID:</b> {$telegram_id}\n" .
-                            "🔗 <b>Site:</b> " . htmlspecialchars($site_url) . "\n" .
-                            "📦 <b>Gateway:</b> " . htmlspecialchars($response_data['gateway']) . "\n" .
-                            "🟢 <b>Status:</b> {$statusTxt}";
-                    sendTelegramHtml($notif);
+            // Deduct 1 credit for the site check (skip for owners)
+            if (!$is_owner) {
+                $credit_deducted = $db->deductCredits($telegram_id, 1);
+                if ($credit_deducted) {
+                    $response_data['credits_deducted'] = 1;
+                    $response_data['remaining_credits'] = $current_credits - 1;
+                } else {
+                    $response_data['warning'] = 'Check completed but credit deduction failed';
                 }
             } else {
-                $response_data['warning'] = 'Check completed but credit deduction failed';
+                $response_data['owner_mode'] = true;
+                $response_data['credits_deducted'] = 0;
+            }
+            
+            // Log the tool usage (for both owners and users)
+            try {
+                if (method_exists($db, 'logToolUsage')) {
+                    $db->logToolUsage($telegram_id, 'site_checker', 1, $is_owner ? 0 : 1);
+                }
+            } catch (Exception $e) {
+                error_log("Failed to log tool usage: " . $e->getMessage());
+            }
+
+            // Telegram notification (default ON)
+            if (function_exists('sendTelegramHtml') && SiteConfig::get('notify_site_check', true)) {
+                $statusTxt = $response_data['is_valid_site'] ? 'VALID' : 'INVALID';
+                $notif = "🌐 <b>Site Check</b>\n\n" .
+                        "👤 <b>User ID:</b> {$telegram_id}\n" .
+                        "🔗 <b>Site:</b> " . htmlspecialchars($site_url) . "\n" .
+                        "📦 <b>Gateway:</b> " . htmlspecialchars($response_data['gateway']) . "\n" .
+                        "🟢 <b>Status:</b> {$statusTxt}";
+                sendTelegramHtml($notif);
             }
         } else {
             // Still failed - provide fallback response

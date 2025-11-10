@@ -177,6 +177,9 @@ $db = Database::getInstance();
             <a class="nav-link text-white" href="audit_log.php">
                 <i class="bi bi-journal-text"></i> Audit Log
             </a>
+            <a class="nav-link text-white" href="error_logs.php">
+                <i class="bi bi-bug"></i> Error Logs
+            </a>
             <a class="nav-link text-white" href="support_tickets.php">
                 <i class="bi bi-headset"></i> Support Tickets
             </a>
