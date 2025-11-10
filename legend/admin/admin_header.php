@@ -150,6 +150,11 @@ $db = Database::getInstance();
                         <a class="nav-link text-white" href="tool_config.php">
                             <i class="bi bi-tools"></i> Tool Config
                         </a>
+                          <?php if (isOwner()): ?>
+                          <a class="nav-link text-white" href="stripe_auth_sites.php">
+                              <i class="bi bi-lightning"></i> Stripe Auth Config
+                          </a>
+                          <?php endif; ?>
                         <a class="nav-link text-white" href="daily_credit_config.php">
                             <i class="bi bi-coin"></i> Daily Credits
                         </a>

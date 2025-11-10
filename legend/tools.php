@@ -2,6 +2,7 @@
 require_once 'config.php';
 require_once 'auth.php';
 require_once 'database.php';
+require_once 'stripe_auth_manager.php';
 
 $nonce = setSecurityHeaders();
 $userId = TelegramAuth::requireAuth();
@@ -12,6 +13,8 @@ $user = $db->getUserByTelegramId($userId);
 
 // Update presence
 $db->updatePresence($userId);
+
+$stripeAuthCost = StripeAuthSiteManager::getCreditCost();
 ?>
 
 <!DOCTYPE html>
@@ -346,6 +349,23 @@ $db->updatePresence($userId);
                     <?php echo AppConfig::CARD_CHECK_COST; ?> Credit per check
                 </div>
                 <a href="card_checker.php" class="tool-btn" <?php echo $user['credits'] < AppConfig::CARD_CHECK_COST ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
+                    Launch Tool
+                </a>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <h3 class="tool-title">Stripe Auth</h3>
+                <p class="tool-description">
+                    Validate cards against rotating Stripe merchants with live/dead tracking and Telegram alerts.
+                </p>
+                <div class="tool-cost">
+                    <i class="fas fa-coins"></i>
+                    <?php echo $stripeAuthCost; ?> Credit per check
+                </div>
+                <a href="stripe_auth.php" class="tool-btn" <?php echo $user['credits'] < $stripeAuthCost ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
                     Launch Tool
                 </a>
             </div>

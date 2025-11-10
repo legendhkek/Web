@@ -52,7 +52,11 @@ class SiteConfig {
         // Preserve existing keys not in the new config
         self::loadConfig();
         $updatedConfig = array_merge(self::$config, $newConfig);
-        return file_put_contents($configFile, json_encode($updatedConfig, JSON_PRETTY_PRINT));
+        return file_put_contents(
+            $configFile,
+            json_encode($updatedConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+            LOCK_EX
+        ) !== false;
     }
 }
 
