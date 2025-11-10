@@ -8,562 +8,217 @@ $nonce = setSecurityHeaders();
 $userId = TelegramAuth::requireAuth();
 $db = Database::getInstance();
 
-// Get online users and leaderboard
-$onlineUsers = $db->getOnlineUsers(20);
+$onlineUsers = $db->getOnlineUsers(40);
 $topUsers = $db->getTopUsers(20);
-
-// Update presence
 $db->updatePresence($userId);
+
+$onlineCount = count($onlineUsers);
+$topPreview = array_slice($topUsers, 0, 10);
+$onlinePreview = array_slice($onlineUsers, 0, 20);
+
+$themeDefault = 'dark';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LEGEND CHECKER - Users</title>
+    <title>Legend Checker · Live Members</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #1a1a1a;
-            --bg-card: #2a2a2a;
-            --bg-card-hover: #333333;
-            --text-primary: #ffffff;
-            --text-secondary: #b0b0b0;
-            --text-muted: #6b7280;
-            --accent-blue: #1da1f2;
-            --accent-green: #00d4aa;
-            --accent-purple: #8b5cf6;
-            --accent-orange: #f59e0b;
-            --accent-pink: #ec4899;
-            --border-color: #3a3a3a;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --error-color: #ef4444;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            padding-bottom: 100px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        /* Header */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 0;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 30px;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--accent-blue);
-        }
-
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .back-button {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 10px 20px;
-            border-radius: 12px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-        }
-
-        .back-button:hover {
-            background: var(--bg-card-hover);
-            transform: translateY(-1px);
-        }
-
-        /* Tabs */
-        .tabs {
-            display: flex;
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 4px;
-            margin-bottom: 30px;
-            border: 1px solid var(--border-color);
-        }
-
-        .tab {
-            flex: 1;
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            padding: 16px 24px;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .tab.active {
-            background: var(--accent-blue);
-            color: white;
-        }
-
-        .tab:hover:not(.active) {
-            background: var(--bg-card-hover);
-            color: var(--text-primary);
-        }
-
-        /* Tab Content */
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* User Lists */
-        .user-list {
-            background: var(--bg-card);
-            border-radius: 16px;
-            border: 1px solid var(--border-color);
-            overflow: hidden;
-        }
-
-        .user-list-header {
-            padding: 24px;
-            border-bottom: 1px solid var(--border-color);
-            background: var(--bg-secondary);
-        }
-
-        .user-list-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 8px;
-        }
-
-        .user-list-subtitle {
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        .user-item {
-            display: flex;
-            align-items: center;
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border-color);
-            transition: background 0.3s ease;
-        }
-
-        .user-item:last-child {
-            border-bottom: none;
-        }
-
-        .user-item:hover {
-            background: var(--bg-card-hover);
-        }
-
-        .user-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            color: white;
-            font-weight: 700;
-            margin-right: 16px;
-            position: relative;
-            flex-shrink: 0;
-        }
-
-        .user-avatar img {
-            width: 100%;
-            height: 100%;
-            border-radius: 12px;
-            object-fit: cover;
-        }
-
-        .presence-dot {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            width: 14px;
-            height: 14px;
-            background: var(--success-color);
-            border: 2px solid var(--bg-card);
-            border-radius: 50%;
-        }
-
-        .user-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .user-name {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-        }
-
-        .user-username {
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-
-        .user-role {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-left: 8px;
-        }
-
-        .user-role.free {
-            background: rgba(107, 114, 128, 0.2);
-            color: var(--text-secondary);
-        }
-
-        .user-role.premium {
-            background: rgba(139, 92, 246, 0.2);
-            color: var(--accent-purple);
-        }
-
-        .user-role.admin {
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--accent-orange);
-        }
-
-        .user-stats {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .user-stat {
-            text-align: right;
-        }
-
-        .user-stat-value {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--accent-blue);
-            display: block;
-        }
-
-        .user-stat-label {
-            font-size: 12px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-secondary);
-        }
-
-        .empty-state i {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
-
-        .empty-state h3 {
-            font-size: 18px;
-            margin-bottom: 8px;
-            color: var(--text-primary);
-        }
-
-        /* Bottom Navigation */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: var(--bg-card);
-            border-top: 1px solid var(--border-color);
-            padding: 16px 0;
-            z-index: 100;
-        }
-
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-        }
-
-        .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: color 0.3s ease;
-            padding: 8px 16px;
-            border-radius: 12px;
-        }
-
-        .nav-item.active,
-        .nav-item:hover {
-            color: var(--accent-blue);
-            background: rgba(29, 161, 242, 0.1);
-        }
-
-        .nav-item i {
-            font-size: 20px;
-        }
-
-        .nav-item span {
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .container {
-                padding: 16px;
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="stylesheet" href="assets/css/enhanced.css">
+    <script nonce="<?php echo $nonce; ?>">
+        try {
+            const savedTheme = localStorage.getItem('legend_theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
             }
-
-            .header {
-                padding: 16px 0;
-            }
-
-            .user-item {
-                padding: 16px;
-            }
-
-            .user-stats {
-                flex-direction: column;
-                gap: 8px;
-            }
-
-            .user-stat {
-                text-align: center;
-            }
-        }
-    </style>
+        } catch (e) {}
+    </script>
 </head>
-<body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="logo">
-                <i class="fas fa-users"></i>
-                Users
-            </div>
-            <div class="header-actions">
-                <a href="dashboard.php" class="back-button">
-                    <i class="fas fa-arrow-left"></i>
-                    Back to Dashboard
-                </a>
-            </div>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('online')">
-                <i class="fas fa-circle" style="color: var(--success-color);"></i>
-                Online Users
-            </button>
-            <button class="tab" onclick="switchTab('leaderboard')">
-                <i class="fas fa-trophy"></i>
-                Top Users
-            </button>
-        </div>
-
-        <!-- Online Users Tab -->
-        <div id="online-tab" class="tab-content active">
-            <div class="user-list">
-                <div class="user-list-header">
-                    <h2 class="user-list-title">Online Users</h2>
-                    <p class="user-list-subtitle">Users active in the last 5 minutes</p>
-                </div>
-                <?php if (empty($onlineUsers)): ?>
-                    <div class="empty-state">
-                        <i class="fas fa-user-slash"></i>
-                        <h3>No users online</h3>
-                        <p>Check back later to see who's active</p>
+<body class="page page-users" data-theme="<?php echo htmlspecialchars($themeDefault); ?>">
+    <div class="page-shell">
+        <header class="page-header">
+            <div class="page-header__left">
+                <div class="brand">
+                    <div class="brand__icon"><i class="fas fa-users-line"></i></div>
+                    <div class="brand__meta">
+                        <span class="brand__name">Legend Network</span>
+                        <span class="brand__tagline">Live presence & rankings</span>
                     </div>
-                <?php else: ?>
-                    <?php foreach ($onlineUsers as $onlineUser): ?>
-                        <div class="user-item">
-                            <div class="user-avatar">
-                                <?php 
-                                $user = $onlineUser['user'] ?? $onlineUser ?? [];
-                                if (!empty($user['avatar_url'])): 
-                                ?>
-                                    <img src="<?php echo htmlspecialchars($user['avatar_url']); ?>" alt="Avatar">
-                                <?php else: ?>
-                                    <?php echo strtoupper(substr($user['display_name'] ?? 'U', 0, 1)); ?>
-                                <?php endif; ?>
-                                <div class="presence-dot"></div>
-                            </div>
-                            <div class="user-info">
-                                <div class="user-name">
-                                    <?php 
-                                    $user = $onlineUser['user'] ?? $onlineUser ?? [];
-                                    echo htmlspecialchars($user['display_name'] ?? 'Unknown User'); 
-                                    ?>
-                                    <span class="user-role <?php echo strtolower($user['role'] ?? 'free'); ?>">
-                                        <?php echo htmlspecialchars(ucfirst($user['role'] ?? 'Free')); ?>
-                                    </span>
-                                </div>
-                                <?php if (!empty($user['username'])): ?>
-                                    <div class="user-username">@<?php echo htmlspecialchars($user['username']); ?></div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="user-stats">
-                                <div class="user-stat">
-                                    <span class="user-stat-value"><?php echo formatNumber($user['credits'] ?? 0); ?></span>
-                                    <span class="user-stat-label">Credits</span>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <!-- Leaderboard Tab -->
-        <div id="leaderboard-tab" class="tab-content">
-            <div class="user-list">
-                <div class="user-list-header">
-                    <h2 class="user-list-title">Top Users</h2>
-                    <p class="user-list-subtitle">Ranked by total hits</p>
                 </div>
-                <?php if (empty($topUsers)): ?>
-                    <div class="empty-state">
-                        <i class="fas fa-trophy"></i>
-                        <h3>No rankings yet</h3>
-                        <p>Start checking cards to appear on the leaderboard</p>
-                    </div>
-                <?php else: ?>
-                    <?php foreach ($topUsers as $index => $topUser): ?>
-                        <div class="user-item">
-                            <div class="user-avatar">
-                                <?php 
-                                $topUserData = $topUser['user'] ?? $topUser ?? [];
-                                if (!empty($topUserData['avatar_url'])): 
-                                ?>
-                                    <img src="<?php echo htmlspecialchars($topUserData['avatar_url']); ?>" alt="Avatar">
-                                <?php else: ?>
-                                    <?php echo strtoupper(substr($topUserData['display_name'] ?? 'U', 0, 1)); ?>
-                                <?php endif; ?>
-                                <?php if ($index < 3): ?>
-                                    <div class="presence-dot" style="background: <?php echo $index === 0 ? '#ffd700' : ($index === 1 ? '#c0c0c0' : '#cd7f32'); ?>"></div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="user-info">
-                                <div class="user-name">
-                                    <?php if ($index === 0): ?>
-                                        <i class="fas fa-crown" style="color: #ffd700; margin-right: 8px;"></i>
-                                    <?php endif; ?>
-                                    <?php echo htmlspecialchars($topUserData['display_name'] ?? 'Unknown User'); ?>
-                                    <span class="user-role <?php echo strtolower($topUserData['role'] ?? 'free'); ?>">
-                                        <?php echo htmlspecialchars(ucfirst($topUserData['role'] ?? 'Free')); ?>
-                                    </span>
-                                </div>
-                                <?php if (!empty($topUserData['username'])): ?>
-                                    <div class="user-username">@<?php echo htmlspecialchars($topUserData['username']); ?></div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="user-stats">
-                                <div class="user-stat">
-                                    <span class="user-stat-value"><?php echo formatNumber($topUser['total_hits'] ?? 0); ?></span>
-                                    <span class="user-stat-label">Hits</span>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                <span class="badge"><i class="fas fa-satellite-dish"></i> Live feed</span>
             </div>
+            <div class="page-header__actions">
+                <div class="chip chip--success">
+                    <i class="fas fa-circle"></i>
+                    <span><?php echo formatNumber($onlineCount); ?> online</span>
+                </div>
+                <button class="btn btn--ghost" data-action="toggle-theme">
+                    <i class="fas fa-moon" data-theme-icon></i>
+                    <span data-theme-label>Dark</span>
+                </button>
+                <button class="btn btn--ghost menu-toggle" aria-label="Toggle menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="dashboard-grid" style="margin-top:0;">
+            <div class="dashboard-grid__main">
+                <section class="card stagger">
+                    <div class="card__head">
+                        <div>
+                            <h2 class="card__title">Active Members</h2>
+                            <p class="card__subtitle">Users who have pinged presence in the last 5 minutes.</p>
+                        </div>
+                        <div class="card__icon"><i class="fas fa-signal"></i></div>
+                    </div>
+                    <?php if (empty($onlinePreview)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-user-slash"></i>
+                            <h3>No active sessions</h3>
+                            <p>When members come online they will appear here instantly.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="widget__list scroller">
+                            <?php foreach ($onlinePreview as $onlineUser): ?>
+                                <?php
+                                    $onlineData = $onlineUser['user'] ?? $onlineUser ?? [];
+                                    $displayName = htmlspecialchars($onlineData['display_name'] ?? 'Unknown User');
+                                    $username = $onlineData['username'] ?? null;
+                                    $role = ucfirst($onlineData['role'] ?? 'free');
+                                    $credits = formatNumber($onlineData['credits'] ?? 0);
+                                    $lastSeenRaw = $onlineUser['last_seen_at'] ?? null;
+                                    $lastSeen = $lastSeenRaw ? timeAgo($lastSeenRaw) : 'Active now';
+                                ?>
+                                <div class="list-item">
+                                    <div class="list-item__avatar">
+                                        <?php if (!empty($onlineData['avatar_url'])): ?>
+                                            <img src="<?php echo htmlspecialchars($onlineData['avatar_url']); ?>" alt="Avatar">
+                                        <?php else: ?>
+                                            <?php echo strtoupper(substr($onlineData['display_name'] ?? 'U', 0, 1)); ?>
+                                        <?php endif; ?>
+                                        <span class="presence-indicator presence-indicator--online"></span>
+                                    </div>
+                                    <div class="list-item__body">
+                                        <div class="list-item__title">
+                                            <?php echo $displayName; ?>
+                                            <span class="pill" style="font-size:0.7rem;"><?php echo htmlspecialchars($role); ?></span>
+                                        </div>
+                                        <div class="list-item__subtitle">
+                                            <?php if ($username): ?>@<?php echo htmlspecialchars($username); ?> · <?php endif; ?>
+                                            <?php echo htmlspecialchars($lastSeen); ?>
+                                        </div>
+                                    </div>
+                                    <div class="list-item__value"><?php echo $credits; ?> cr</div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            </div>
+
+            <aside class="dashboard-grid__aside">
+                <section class="widget stagger">
+                    <div class="widget__header">
+                        <h3 class="widget__title"><i class="fas fa-trophy"></i> Performance Leaderboard</h3>
+                        <span class="widget__meta">Top 10 by total hits</span>
+                    </div>
+                    <?php if (empty($topPreview)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-ranking-star"></i>
+                            <h3>No rankings yet</h3>
+                            <p>Execute more checks to populate the leaderboard.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="widget__list scroller">
+                            <?php foreach ($topPreview as $index => $topUser): ?>
+                                <?php
+                                    $leaderData = $topUser['user'] ?? $topUser ?? [];
+                                    $leaderName = htmlspecialchars($leaderData['display_name'] ?? 'Unknown User');
+                                    $leaderUsername = $leaderData['username'] ?? null;
+                                    $leaderRole = ucfirst($leaderData['role'] ?? 'free');
+                                    $leaderHits = formatNumber($topUser['total_hits'] ?? 0);
+                                    $indicatorClass = $index === 0 ? 'presence-indicator--gold' : 'presence-indicator--online';
+                                ?>
+                                <div class="list-item">
+                                    <div class="list-item__avatar">
+                                        <?php if (!empty($leaderData['avatar_url'])): ?>
+                                            <img src="<?php echo htmlspecialchars($leaderData['avatar_url']); ?>" alt="Avatar">
+                                        <?php else: ?>
+                                            <?php echo strtoupper(substr($leaderData['display_name'] ?? 'U', 0, 1)); ?>
+                                        <?php endif; ?>
+                                        <span class="presence-indicator <?php echo $indicatorClass; ?>"></span>
+                                    </div>
+                                    <div class="list-item__body">
+                                        <div class="list-item__title">
+                                            <?php if ($index === 0): ?><i class="fas fa-crown" style="color:#facc15;"></i><?php endif; ?>
+                                            <?php echo $leaderName; ?>
+                                            <span class="pill" style="font-size:0.7rem;"><?php echo htmlspecialchars($leaderRole); ?></span>
+                                        </div>
+                                        <div class="list-item__subtitle">
+                                            Rank #<?php echo $index + 1; ?>
+                                            <?php if ($leaderUsername): ?> · @<?php echo htmlspecialchars($leaderUsername); ?><?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div class="list-item__value"><?php echo $leaderHits; ?> hits</div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            </aside>
         </div>
     </div>
 
-    <!-- Bottom Navigation -->
     <div class="bottom-nav">
-        <div class="nav-container">
-            <a href="dashboard.php" class="nav-item">
+        <nav class="bottom-nav__items">
+            <a href="dashboard.php" class="bottom-nav__item">
                 <i class="fas fa-home"></i>
-                <span>Home</span>
+                <span>Dashboard</span>
             </a>
-            <a href="tools.php" class="nav-item">
-                <i class="fas fa-star"></i>
+            <a href="tools.php" class="bottom-nav__item">
+                <i class="fas fa-tools"></i>
                 <span>Tools</span>
             </a>
-            <a href="users.php" class="nav-item active">
+            <a href="users.php" class="bottom-nav__item bottom-nav__item--active">
                 <i class="fas fa-users"></i>
                 <span>Users</span>
             </a>
-        </div>
+            <a href="wallet.php" class="bottom-nav__item">
+                <i class="fas fa-wallet"></i>
+                <span>Wallet</span>
+            </a>
+        </nav>
     </div>
 
-    <script nonce="<?php echo $nonce; ?>">
-        function switchTab(tabName) {
-            // Hide all tab contents
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            
-            // Remove active class from all tabs
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected tab content
-            document.getElementById(tabName + '-tab').classList.add('active');
-            
-            // Add active class to selected tab
-            event.target.classList.add('active');
-        }
+    <div class="drawer-overlay"></div>
+    <aside class="drawer">
+        <div class="drawer-header">
+            <div class="brand">
+                <div class="brand__icon"><i class="fas fa-shield"></i></div>
+                <div class="brand__meta">
+                    <span class="brand__name">Legend</span>
+                    <span class="brand__tagline">Command Center</span>
+                </div>
+            </div>
+        </div>
+        <nav class="drawer-menu">
+            <a href="dashboard.php" class="drawer-item"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="wallet.php" class="drawer-item"><i class="fas fa-coins"></i> Deposit XCoin</a>
+            <a href="credit_claim.php" class="drawer-item"><i class="fas fa-gift"></i> Claim Codes</a>
+            <a href="premium.php" class="drawer-item"><i class="fas fa-crown"></i> Buy Premium</a>
+            <a href="redeem.php" class="drawer-item"><i class="fas fa-ticket"></i> Redeem</a>
+            <a href="card_checker.php" class="drawer-item"><i class="fas fa-credit-card"></i> Card Checker</a>
+            <a href="site_checker.php" class="drawer-item"><i class="fas fa-globe"></i> Site Checker</a>
+            <a href="tools.php" class="drawer-item"><i class="fas fa-tools"></i> Tools</a>
+            <a href="settings.php" class="drawer-item"><i class="fas fa-gear"></i> Settings</a>
+            <a href="logout.php" class="drawer-item"><i class="fas fa-right-from-bracket"></i> Logout</a>
+        </nav>
+    </aside>
 
-        // Auto-refresh online users every 30 seconds
-        setInterval(() => {
-            if (document.getElementById('online-tab').classList.contains('active')) {
-                location.reload();
-            }
-        }, 30000);
-
-        // Update presence every 2 minutes
-        setInterval(() => {
-            fetch('api/presence.php', { method: 'POST' });
-        }, 120000);
-    </script>
+    <script src="assets/js/main.js" nonce="<?php echo $nonce; ?>"></script>
 </body>
 </html>

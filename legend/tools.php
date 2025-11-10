@@ -2,492 +2,266 @@
 require_once 'config.php';
 require_once 'auth.php';
 require_once 'database.php';
+require_once 'utils.php';
 
 $nonce = setSecurityHeaders();
 $userId = TelegramAuth::requireAuth();
 $db = Database::getInstance();
 
-// Get user data
 $user = $db->getUserByTelegramId($userId);
+$user['credits'] = (int)($user['credits'] ?? 0);
+$user['xcoin_balance'] = (int)($user['xcoin_balance'] ?? 0);
+$user['display_name'] = $user['display_name'] ?? ($user['first_name'] ?? 'User');
+$userStats = $db->getUserStats($userId) ?? [
+    'total_hits' => 0,
+    'total_charge_cards' => 0,
+    'total_live_cards' => 0
+];
 
-// Update presence
 $db->updatePresence($userId);
-?>
 
+$tools = [
+    [
+        'title' => 'Card Checker',
+        'icon' => 'fa-credit-card',
+        'description' => 'Validate credit card numbers with live feedback from payment gateways.',
+        'link' => 'card_checker.php',
+        'cost' => AppConfig::CARD_CHECK_COST,
+        'tag' => 'Core'
+    ],
+    [
+        'title' => 'Site Checker',
+        'icon' => 'fa-globe',
+        'description' => 'Monitor website availability and response codes across multiple endpoints.',
+        'link' => 'site_checker.php',
+        'cost' => AppConfig::SITE_CHECK_COST,
+        'tag' => 'Network'
+    ],
+    [
+        'title' => 'Stripe Auth Checker',
+        'icon' => 'fa-stripe-s',
+        'description' => 'Test Stripe authentication with automatic rotation across 280+ sites.',
+        'link' => 'stripe_auth_tool.php',
+        'cost' => 1,
+        'tag' => 'Automation'
+    ],
+    [
+        'title' => 'BIN Lookup',
+        'icon' => 'fa-search',
+        'description' => 'Get detailed intelligence on BINs: issuer, card type, bank, and country.',
+        'link' => 'bin_lookup_tool.php',
+        'cost' => 0,
+        'tag' => 'Free'
+    ],
+    [
+        'title' => 'BIN Generator',
+        'icon' => 'fa-magic',
+        'description' => 'Generate valid card numbers from BINs with built-in Luhn algorithm validation.',
+        'link' => 'bin_generator_tool.php',
+        'cost' => 0,
+        'tag' => 'Free'
+    ],
+    [
+        'title' => 'Security Scanner',
+        'icon' => 'fa-shield-halved',
+        'description' => 'Advanced vulnerability assessment suite (in development).',
+        'link' => null,
+        'cost' => 5,
+        'tag' => 'Coming soon'
+    ],
+];
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tools - LEGEND CHECKER</title>
+    <title>Legend Checker · Tools & Automations</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-            color: #ffffff;
-            min-height: 100vh;
-            padding-bottom: 80px;
-        }
-
-        .header {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 1rem;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .back-btn {
-            color: #00d4ff;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .back-btn:hover {
-            color: #ffffff;
-            transform: translateX(-5px);
-        }
-
-        .user-credits {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(0, 212, 255, 0.1);
-            padding: 0.5rem 1rem;
-            border-radius: 25px;
-            border: 1px solid rgba(0, 212, 255, 0.3);
-        }
-
-        .credits-warning {
-            background: rgba(255, 107, 107, 0.1);
-            border-color: rgba(255, 107, 107, 0.3);
-            color: #ff6b6b;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-        }
-
-        .page-title {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-
-        .page-title h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #00d4ff, #7c3aed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
-        }
-
-        .page-title p {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 1.1rem;
-        }
-
-        .tools-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-
-        .tool-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 2rem;
-            text-align: center;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .tool-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #00d4ff, #7c3aed);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .tool-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(0, 212, 255, 0.3);
-            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.1);
-        }
-
-        .tool-card:hover::before {
-            opacity: 1;
-        }
-
-        .tool-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #00d4ff, #7c3aed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .tool-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .tool-description {
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 1.5rem;
-            line-height: 1.6;
-        }
-
-        .tool-cost {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(0, 212, 255, 0.1);
-            padding: 0.5rem 1rem;
-            border-radius: 15px;
-            font-weight: 500;
-            margin-bottom: 1.5rem;
-        }
-
-        .tool-btn {
-            background: linear-gradient(135deg, #00d4ff, #7c3aed);
-            color: white;
-            border: none;
-            padding: 0.75rem 2rem;
-            border-radius: 25px;
-            font-weight: 600;
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .tool-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0, 212, 255, 0.3);
-        }
-
-        .tool-btn:disabled {
-            background: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.5);
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .stats-section {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .stats-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        .stat-item {
-            text-align: center;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-        }
-
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #00d4ff;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.9rem;
-        }
-
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(15, 15, 35, 0.95);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 1rem;
-            z-index: 1000;
-        }
-
-        .nav-items {
-            display: flex;
-            justify-content: space-around;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .nav-item {
-            color: rgba(255, 255, 255, 0.6);
-            text-decoration: none;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.25rem;
-            font-size: 0.8rem;
-            transition: all 0.3s ease;
-        }
-
-        .nav-item.active {
-            color: #00d4ff;
-        }
-
-        .nav-item:hover {
-            color: #ffffff;
-        }
-
-        .nav-item i {
-            font-size: 1.2rem;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="stylesheet" href="assets/css/enhanced.css">
+    <script nonce="<?php echo $nonce; ?>">
+        try {
+            const savedTheme = localStorage.getItem('legend_theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
             }
-
-            .page-title h1 {
-                font-size: 2rem;
-            }
-
-            .tools-grid {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
-
-            .tool-card {
-                padding: 1.5rem;
-            }
-        }
-    </style>
+        } catch (e) {}
+    </script>
 </head>
-<body>
-    <div class="header">
-        <div class="header-content">
-            <a href="dashboard.php" class="back-btn">
-                <i class="fas fa-arrow-left"></i>
-                Back to Dashboard
-            </a>
-            <div class="user-credits <?php echo $user['credits'] < 10 ? 'credits-warning' : ''; ?>">
-                <i class="fas fa-coins"></i>
-                <span><?php echo number_format($user['credits']); ?> Credits</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="container">
-        <div class="page-title">
-            <h1><i class="fas fa-tools"></i> Tools & Checkers</h1>
-            <p>Professional tools for security testing and validation</p>
-        </div>
-
-        <div class="tools-grid">
-            <div class="tool-card">
-                <div class="tool-icon">
-                    <i class="fas fa-credit-card"></i>
+<body class="page page-tools" data-theme="dark">
+    <div class="page-shell">
+        <header class="page-header">
+            <div class="page-header__left">
+                <div class="brand">
+                    <div class="brand__icon"><i class="fas fa-screwdriver-wrench"></i></div>
+                    <div class="brand__meta">
+                        <span class="brand__name">Legend Toolkit</span>
+                        <span class="brand__tagline">Execute with precision</span>
+                    </div>
                 </div>
-                <h3 class="tool-title">Card Checker</h3>
-                <p class="tool-description">
-                    Validate credit card numbers and check their status against payment gateways
-                </p>
-                <div class="tool-cost">
+                <span class="badge"><i class="fas fa-terminal"></i> Operator Mode</span>
+            </div>
+            <div class="page-header__actions">
+                <div class="chip">
                     <i class="fas fa-coins"></i>
-                    <?php echo AppConfig::CARD_CHECK_COST; ?> Credit per check
+                    <span><?php echo formatNumber($user['credits']); ?> credits</span>
                 </div>
-                <a href="card_checker.php" class="tool-btn" <?php echo $user['credits'] < AppConfig::CARD_CHECK_COST ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
-                    Launch Tool
-                </a>
-            </div>
-
-            <div class="tool-card">
-                <div class="tool-icon">
-                    <i class="fas fa-globe"></i>
+                <div class="chip">
+                    <i class="fas fa-wallet"></i>
+                    <span><?php echo formatNumber($user['xcoin_balance']); ?> XCoin</span>
                 </div>
-                <h3 class="tool-title">Site Checker</h3>
-                <p class="tool-description">
-                    Test website availability and response codes for multiple URLs simultaneously
-                </p>
-                <div class="tool-cost">
-                    <i class="fas fa-coins"></i>
-                    <?php echo AppConfig::SITE_CHECK_COST; ?> Credit per check
-                </div>
-                <a href="site_checker.php" class="tool-btn" <?php echo $user['credits'] < AppConfig::SITE_CHECK_COST ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
-                    Launch Tool
-                </a>
-            </div>
-
-            <div class="tool-card">
-                <div class="tool-icon">
-                    <i class="fas fa-stripe-s"></i>
-                </div>
-                <h3 class="tool-title">Stripe Auth Checker</h3>
-                <p class="tool-description">
-                    Test Stripe authentication with automatic site rotation across 280+ sites
-                </p>
-                <div class="tool-cost">
-                    <i class="fas fa-coins"></i>
-                    1 Credit per check
-                </div>
-                <a href="stripe_auth_tool.php" class="tool-btn" <?php echo $user['credits'] < 1 ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
-                    Launch Tool
-                </a>
-            </div>
-
-            <div class="tool-card">
-                <div class="tool-icon">
-                    <i class="fas fa-search"></i>
-                </div>
-                <h3 class="tool-title">BIN Lookup</h3>
-                <p class="tool-description">
-                    Get detailed information about any BIN number - card type, bank, country
-                </p>
-                <div class="tool-cost" style="background: rgba(0, 230, 118, 0.1);">
-                    <i class="fas fa-gift"></i>
-                    FREE Tool
-                </div>
-                <a href="bin_lookup_tool.php" class="tool-btn">
-                    Launch Tool
-                </a>
-            </div>
-
-            <div class="tool-card">
-                <div class="tool-icon">
-                    <i class="fas fa-magic"></i>
-                </div>
-                <h3 class="tool-title">BIN Generator</h3>
-                <p class="tool-description">
-                    Generate valid credit card numbers from BIN with Luhn algorithm validation
-                </p>
-                <div class="tool-cost" style="background: rgba(0, 230, 118, 0.1);">
-                    <i class="fas fa-gift"></i>
-                    FREE Tool
-                </div>
-                <a href="bin_generator_tool.php" class="tool-btn">
-                    Launch Tool
-                </a>
-            </div>
-
-            <div class="tool-card">
-                <div class="tool-icon">
-                    <i class="fas fa-shield-alt"></i>
-                </div>
-                <h3 class="tool-title">Security Scanner</h3>
-                <p class="tool-description">
-                    Advanced security scanning and vulnerability assessment tools
-                </p>
-                <div class="tool-cost">
-                    <i class="fas fa-coins"></i>
-                    5 Credits per scan
-                </div>
-                <button class="tool-btn" disabled>
-                    Coming Soon
+                <button class="btn btn--ghost" data-action="toggle-theme">
+                    <i class="fas fa-moon" data-theme-icon></i>
+                    <span data-theme-label>Dark</span>
+                </button>
+                <button class="btn btn--ghost menu-toggle" aria-label="Toggle menu">
+                    <i class="fas fa-bars"></i>
                 </button>
             </div>
-        </div>
+        </header>
 
-        <?php
-        $userStats = $db->getUserStats($userId);
-        ?>
-        <div class="stats-section">
-            <h2 class="stats-title">Your Usage Statistics</h2>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-value"><?php echo number_format($userStats['total_hits'] ?? 0); ?></div>
-                    <div class="stat-label">Total Checks</div>
+        <section class="card card--glass stagger">
+            <div class="card__head">
+                <div>
+                    <h1 class="card__title">Mission Control</h1>
+                    <p class="card__subtitle">Select the right tool for the operation. Costs are debited on execution.</p>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value"><?php echo number_format($userStats['total_charge_cards'] ?? 0); ?></div>
-                    <div class="stat-label">Charged Cards</div>
+                <div class="card__icon"><i class="fas fa-compass"></i></div>
+            </div>
+            <div class="metric-pulse" style="margin-top:12px;">
+                <div class="metric-pill">
+                    <span class="metric-pill__value"><?php echo formatNumber($userStats['total_hits'] ?? 0); ?></span>
+                    <span class="metric-pill__label">Total Runs</span>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value"><?php echo number_format($userStats['total_live_cards'] ?? 0); ?></div>
-                    <div class="stat-label">Live Cards</div>
+                <div class="metric-pill">
+                    <span class="metric-pill__value"><?php echo formatNumber($userStats['total_charge_cards'] ?? 0); ?></span>
+                    <span class="metric-pill__label">Charge Cards</span>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value"><?php echo number_format($user['credits']); ?></div>
-                    <div class="stat-label">Available Credits</div>
+                <div class="metric-pill">
+                    <span class="metric-pill__value"><?php echo formatNumber($userStats['total_live_cards'] ?? 0); ?></span>
+                    <span class="metric-pill__label">Live Cards</span>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <section class="grid grid--cols-4" style="margin-top:28px;">
+            <?php foreach ($tools as $tool): ?>
+                <?php
+                    $isComingSoon = empty($tool['link']);
+                    $insufficientCredits = !$isComingSoon && $tool['cost'] > 0 && $user['credits'] < $tool['cost'];
+                    $buttonLabel = $isComingSoon ? 'Coming soon' : ($insufficientCredits ? 'Add credits' : 'Launch tool');
+                    $buttonClass = $isComingSoon || $insufficientCredits ? 'btn btn--ghost' : 'btn btn--primary';
+                ?>
+                <article class="card stagger">
+                    <div class="card__head">
+                        <div>
+                            <h3 class="card__title"><?php echo htmlspecialchars($tool['title']); ?></h3>
+                            <p class="card__subtitle"><?php echo htmlspecialchars($tool['description']); ?></p>
+                        </div>
+                        <div class="card__icon"><i class="fas <?php echo htmlspecialchars($tool['icon']); ?>"></i></div>
+                    </div>
+                    <div class="card__meta">
+                        <?php if ($tool['cost'] > 0): ?>
+                            <span class="pill"><i class="fas fa-coins"></i> <?php echo $tool['cost']; ?> credits per run</span>
+                        <?php else: ?>
+                            <span class="pill"><i class="fas fa-gift"></i> Free access</span>
+                        <?php endif; ?>
+                        <span class="pill"><i class="fas fa-tag"></i> <?php echo htmlspecialchars($tool['tag']); ?></span>
+                    </div>
+                    <?php if ($isComingSoon): ?>
+                        <button class="<?php echo $buttonClass; ?>" type="button" disabled style="margin-top:18px;">
+                            <i class="fas fa-sparkles"></i> <?php echo $buttonLabel; ?>
+                        </button>
+                    <?php elseif ($insufficientCredits): ?>
+                        <a class="<?php echo $buttonClass; ?>" href="wallet.php" style="margin-top:18px;">
+                            <i class="fas fa-arrow-up-right-from-square"></i> <?php echo $buttonLabel; ?>
+                        </a>
+                    <?php else: ?>
+                        <a class="<?php echo $buttonClass; ?>" href="<?php echo htmlspecialchars($tool['link']); ?>" style="margin-top:18px;">
+                            <i class="fas fa-arrow-up-right-from-square"></i> <?php echo $buttonLabel; ?>
+                        </a>
+                    <?php endif; ?>
+                </article>
+            <?php endforeach; ?>
+        </section>
+
+        <section class="card stagger" style="margin-top:28px;">
+            <div class="card__head">
+                <div>
+                    <h3 class="card__title">Execution Stats</h3>
+                    <p class="card__subtitle">Monitor how your credits convert into successful runs.</p>
+                </div>
+                <div class="card__icon"><i class="fas fa-chart-simple"></i></div>
+            </div>
+            <div class="grid grid--cols-4">
+                <div class="metric-pill">
+                    <span class="metric-pill__value"><?php echo formatNumber($userStats['total_hits'] ?? 0); ?></span>
+                    <span class="metric-pill__label">Total Checks</span>
+                </div>
+                <div class="metric-pill">
+                    <span class="metric-pill__value"><?php echo formatNumber($userStats['total_charge_cards'] ?? 0); ?></span>
+                    <span class="metric-pill__label">Charge Cards</span>
+                </div>
+                <div class="metric-pill">
+                    <span class="metric-pill__value"><?php echo formatNumber($userStats['total_live_cards'] ?? 0); ?></span>
+                    <span class="metric-pill__label">Live Cards</span>
+                </div>
+                <div class="metric-pill">
+                    <span class="metric-pill__value"><?php echo formatNumber($user['credits']); ?></span>
+                    <span class="metric-pill__label">Available Credits</span>
+                </div>
+            </div>
+        </section>
     </div>
 
     <div class="bottom-nav">
-        <div class="nav-items">
-            <a href="dashboard.php" class="nav-item">
+        <nav class="bottom-nav__items">
+            <a href="dashboard.php" class="bottom-nav__item">
                 <i class="fas fa-home"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="tools.php" class="nav-item active">
+            <a href="tools.php" class="bottom-nav__item bottom-nav__item--active">
                 <i class="fas fa-tools"></i>
                 <span>Tools</span>
             </a>
-            <a href="users.php" class="nav-item">
+            <a href="users.php" class="bottom-nav__item">
                 <i class="fas fa-users"></i>
                 <span>Users</span>
             </a>
-            <a href="wallet.php" class="nav-item">
+            <a href="wallet.php" class="bottom-nav__item">
                 <i class="fas fa-wallet"></i>
                 <span>Wallet</span>
             </a>
-        </div>
+        </nav>
     </div>
 
-    <script nonce="<?php echo $nonce; ?>">
-        // Update presence every 2 minutes
-        setInterval(() => {
-            fetch('api/presence.php', { method: 'POST' });
-        }, 120000);
-    </script>
+    <div class="drawer-overlay"></div>
+    <aside class="drawer">
+        <div class="drawer-header">
+            <div class="brand">
+                <div class="brand__icon"><i class="fas fa-shield"></i></div>
+                <div class="brand__meta">
+                    <span class="brand__name">Legend</span>
+                    <span class="brand__tagline">Command Center</span>
+                </div>
+            </div>
+        </div>
+        <nav class="drawer-menu">
+            <a href="dashboard.php" class="drawer-item"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="wallet.php" class="drawer-item"><i class="fas fa-coins"></i> Deposit XCoin</a>
+            <a href="credit_claim.php" class="drawer-item"><i class="fas fa-gift"></i> Claim Codes</a>
+            <a href="premium.php" class="drawer-item"><i class="fas fa-crown"></i> Buy Premium</a>
+            <a href="redeem.php" class="drawer-item"><i class="fas fa-ticket"></i> Redeem</a>
+            <a href="card_checker.php" class="drawer-item"><i class="fas fa-credit-card"></i> Card Checker</a>
+            <a href="site_checker.php" class="drawer-item"><i class="fas fa-globe"></i> Site Checker</a>
+            <a href="tools.php" class="drawer-item"><i class="fas fa-tools"></i> Tools</a>
+            <a href="settings.php" class="drawer-item"><i class="fas fa-gear"></i> Settings</a>
+            <a href="logout.php" class="drawer-item"><i class="fas fa-right-from-bracket"></i> Logout</a>
+        </nav>
+    </aside>
+
+    <script src="assets/js/main.js" nonce="<?php echo $nonce; ?>"></script>
 </body>
 </html>
