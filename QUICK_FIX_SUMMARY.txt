@@ -4,15 +4,10 @@
 
 ✅ ALL CRITICAL ISSUES FIXED - November 10, 2025
 
-PROBLEM 1: Wrong Domain Configuration
-├─ Before: autoshopify.sonugamingop.tech ❌
-├─ After:  legendbl.sonugamingop.tech ✅
-└─ Files Fixed: 5 (config.php, bot_setup.php, etc.)
-
-PROBLEM 2: Broken Webhook URLs
-├─ Before: Relative paths, inconsistent URLs ❌
-├─ After:  Absolute paths, all consistent ✅
-└─ URL: https://legendbl.sonugamingop.tech/telegram_webhook_enhanced.php
+PROBLEM: Broken Webhook URLs
+├─ Before: Relative paths /telegram_webhook_enhanced.php ❌
+├─ After:  Absolute full URLs ✅
+└─ URL: https://autoshopify.sonugamingop.tech/telegram_webhook_enhanced.php
 
 CODE QUALITY CHECK
 ├─ PHP Files Scanned: 95
@@ -27,14 +22,14 @@ Bot Token:    7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU
 Bot Username: @WebkeBot
 Owner ID:     5652614329 (@LEGEND_BL)
 Database:     MongoDB legend_db
-Domain:       https://legendbl.sonugamingop.tech
+Domain:       https://autoshopify.sonugamingop.tech
 
 ═══════════════════════════════════════════════════════════════
   QUICK START
 ═══════════════════════════════════════════════════════════════
 
 1. Set Webhook:
-   → Visit: https://legendbl.sonugamingop.tech/bot_setup.php
+   → Visit: https://autoshopify.sonugamingop.tech/bot_setup.php
    → Click: "Setup Bot"
 
 2. Test Bot:

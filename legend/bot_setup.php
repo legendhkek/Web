@@ -5,7 +5,7 @@
  */
 
 $bot_token = '7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU';
-$webhook_url = 'https://legendbl.sonugamingop.tech/telegram_webhook_enhanced.php';
+$webhook_url = 'https://autoshopify.sonugamingop.tech/telegram_webhook_enhanced.php';
 
 // Set webhook
 function setWebhook($bot_token, $webhook_url) {

@@ -10,7 +10,7 @@ header('Content-Type: text/html; charset=utf-8');
 
 $bot_token = '7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU';
 $bot_api_url = "https://api.telegram.org/bot{$bot_token}/";
-$webhook_url = 'https://legendbl.sonugamingop.tech/telegram_webhook_enhanced.php';
+$webhook_url = 'https://autoshopify.sonugamingop.tech/telegram_webhook_enhanced.php';
 $owner_id = 5652614329; // @LEGEND_BL
 
 ?>

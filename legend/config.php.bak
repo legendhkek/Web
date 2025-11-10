@@ -57,7 +57,7 @@ class SiteConfig {
 }
 
 class AppConfig {
-    const DOMAIN = 'https://legendbl.sonugamingop.tech';
+    const DOMAIN = 'https://autoshopify.sonugamingop.tech';
     const CHECKER_API_URL = 'https://redbugxapi.sonugamingop.tech/autosh.php';
     const SESSION_TIMEOUT = 86400; // 24 hours
     const DAILY_CREDIT_AMOUNT = 10; // Fallback

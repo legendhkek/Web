@@ -117,7 +117,7 @@
         Current domain: <?php echo AppConfig::DOMAIN; ?><br>
         <?php if (strpos(AppConfig::DOMAIN, 'https://') === false): ?>
         ❌ Using HTTP - Telegram requires HTTPS for webhooks!<br>
-        Update config.php: <code>const DOMAIN = 'https://legendbl.sonugamingop.tech';</code>
+        Update config.php: <code>const DOMAIN = 'https://autoshopify.sonugamingop.tech';</code>
         <?php else: ?>
         ✅ Using HTTPS - Ready to set webhook!<br>
         <a href="test_bot.php" style="color: white; text-decoration: underline;">Click here to test and set webhook</a>
