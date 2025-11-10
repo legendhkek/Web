@@ -2,6 +2,11 @@
 // Ex Chk - Configuration File
 // MongoDB Atlas Connection & Telegram Bot Configuration
 
+// Initialize enhanced error handler
+if (file_exists(__DIR__ . '/error_handler.php')) {
+    require_once __DIR__ . '/error_handler.php';
+}
+
 class DatabaseConfig {
     // MongoDB Configuration
     const MONGODB_URI = 'mongodb+srv://sarthakgrid_db_user:pwAyjsdl9FPsBSUS@legend.0rrvdmy.mongodb.net/?appName=legend';
