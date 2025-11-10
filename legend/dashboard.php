@@ -831,7 +831,7 @@ $claimMessage = '';
                 <button id="claimCreditsBtn" class="claim-button" style="margin-top:10px;background:rgba(0,0,0,0.25)">
                     <i class="fas fa-gift"></i> Daily Claim
                 </button>
-                <small class="countdown">Claim free credits once per day</small>
+                <small class="countdown" id="countdownText">Claim free credits once per day</small>
             </div>
 
             <!-- User Stats Card -->
@@ -1272,6 +1272,117 @@ $claimMessage = '';
             });
         }
 
+        // Daily credit claim functionality
+        const claimCreditsBtn = document.getElementById('claimCreditsBtn');
+        if (claimCreditsBtn) {
+            claimCreditsBtn.addEventListener('click', async function() {
+                const originalText = this.innerHTML;
+                const originalDisabled = this.disabled;
+                
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Claiming...';
+                
+                try {
+                    const response = await fetch('api/claim_credits.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'same-origin'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Show success message
+                        const successMsg = document.createElement('div');
+                        successMsg.className = 'success-message';
+                        successMsg.innerHTML = '<i class="fas fa-check-circle"></i> ' + result.message;
+                        document.querySelector('.container').insertBefore(successMsg, document.querySelector('.container').firstChild);
+                        
+                        // Update countdown if next claim time provided
+                        if (result.next_claim_time) {
+                            updateCountdown(result.next_claim_time);
+                        }
+                        
+                        // Reload page after 2 seconds to show updated credits
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        // Show error message
+                        const errorMsg = document.createElement('div');
+                        errorMsg.className = 'success-message';
+                        errorMsg.style.background = 'rgba(239, 68, 68, 0.1)';
+                        errorMsg.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                        errorMsg.style.color = 'var(--error-color)';
+                        errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + result.message;
+                        document.querySelector('.container').insertBefore(errorMsg, document.querySelector('.container').firstChild);
+                        
+                        // Update countdown if next claim time provided
+                        if (result.next_claim_time) {
+                            updateCountdown(result.next_claim_time);
+                        }
+                        
+                        this.disabled = false;
+                        this.innerHTML = originalText;
+                        
+                        // Remove error message after 5 seconds
+                        setTimeout(() => {
+                            errorMsg.remove();
+                        }, 5000);
+                    }
+                } catch (error) {
+                    console.error('Claim error:', error);
+                    const errorMsg = document.createElement('div');
+                    errorMsg.className = 'success-message';
+                    errorMsg.style.background = 'rgba(239, 68, 68, 0.1)';
+                    errorMsg.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    errorMsg.style.color = 'var(--error-color)';
+                    errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Network error occurred. Please try again.';
+                    document.querySelector('.container').insertBefore(errorMsg, document.querySelector('.container').firstChild);
+                    
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                    
+                    setTimeout(() => {
+                        errorMsg.remove();
+                    }, 5000);
+                }
+            });
+        }
+        
+        // Update countdown timer
+        function updateCountdown(nextClaimTime) {
+            const countdownText = document.getElementById('countdownText');
+            if (!countdownText || !nextClaimTime) return;
+            
+            function update() {
+                const now = Math.floor(Date.now() / 1000);
+                const diff = nextClaimTime - now;
+                
+                if (diff <= 0) {
+                    countdownText.textContent = 'Claim free credits once per day';
+                    return;
+                }
+                
+                const hours = Math.floor(diff / 3600);
+                const minutes = Math.floor((diff % 3600) / 60);
+                const seconds = diff % 60;
+                
+                if (hours > 0) {
+                    countdownText.textContent = `Next claim available in ${hours}h ${minutes}m ${seconds}s`;
+                } else if (minutes > 0) {
+                    countdownText.textContent = `Next claim available in ${minutes}m ${seconds}s`;
+                } else {
+                    countdownText.textContent = `Next claim available in ${seconds}s`;
+                }
+            }
+            
+            update();
+            setInterval(update, 1000);
+        }
+        
         // Make functions globally available
         window.toggleQuickTools = toggleQuickTools;
         window.toggleProxySection = toggleProxySection;

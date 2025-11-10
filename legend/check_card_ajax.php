@@ -111,9 +111,9 @@ if (!$is_owner && $current_credits < 1) {
     exit;
 }
 
-$card = isset($_GET['cc']) ? filter_var(trim($_GET['cc']), FILTER_SANITIZE_STRING) : '';
-$site = isset($_GET['site']) ? filter_var(trim($_GET['site']), FILTER_SANITIZE_URL) : '';
-$proxy = isset($_GET['proxy']) ? filter_var(trim($_GET['proxy']), FILTER_SANITIZE_STRING) : '';
+$card = isset($_GET['cc']) ? sanitizeInput(trim($_GET['cc']), 'string') : '';
+$site = isset($_GET['site']) ? sanitizeInput(trim($_GET['site']), 'url') : '';
+$proxy = isset($_GET['proxy']) ? sanitizeInput(trim($_GET['proxy']), 'string') : '';
 $useNoProxy = isset($_GET['noproxy']) && ($_GET['noproxy'] === '1' || $_GET['noproxy'] === 'true' || $_GET['noproxy'] === 'yes');
 
 // Checkpoint 1: Variables parsed
@@ -144,10 +144,29 @@ if (!empty($card)) {
             $card = $card_num . '|' . $month . '|' . $year . '|' . $cvv;
         }
 
-        if (preg_match("/^\d{16}$/", $card_num) && 
+        // Use validation functions from utils.php
+        if (validateCardNumber($card_num) && 
             preg_match("/^(0[1-9]|1[0-2])$/", $month) && 
             (preg_match("/^\d{2}$/", $card_parts[2]) || preg_match("/^\d{4}$/", $year)) && 
-            preg_match("/^\d{3,4}$/", $cvv)) {
+            validateCVV($cvv)) {
+            
+            // Validate expiry date
+            $expiryStr = $month . '/' . (strlen($year) == 2 ? $year : substr($year, -2));
+            if (!validateExpiryDate($expiryStr)) {
+                echo json_encode([
+                    'error' => true,
+                    'message' => 'Card has expired',
+                    'status' => 'EXPIRED',
+                    'card' => substr($card_num, 0, 4) . '****',
+                    'site' => $site,
+                    'gateway' => 'N/A',
+                    'price' => '0.00',
+                    'proxy_status' => 'N/A',
+                    'proxy_ip' => 'N/A',
+                    'time' => '0ms'
+                ]);
+                exit;
+            }
             $is_valid_card = true;
         }
     }

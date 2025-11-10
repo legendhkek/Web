@@ -166,4 +166,241 @@ function generateCSRFToken() {
 function verifyCSRFToken($token) {
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
 }
+
+/**
+ * Sanitize input string to prevent XSS
+ */
+function sanitizeInput($input, $type = 'string') {
+    if (is_null($input)) {
+        return null;
+    }
+    
+    switch ($type) {
+        case 'string':
+            return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+        case 'int':
+            return (int)filter_var($input, FILTER_SANITIZE_NUMBER_INT);
+        case 'float':
+            return (float)filter_var($input, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+        case 'email':
+            return filter_var(trim($input), FILTER_SANITIZE_EMAIL);
+        case 'url':
+            return filter_var(trim($input), FILTER_SANITIZE_URL);
+        case 'alphanumeric':
+            return preg_replace('/[^a-zA-Z0-9]/', '', $input);
+        default:
+            return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+    }
+}
+
+/**
+ * Validate and sanitize array of inputs
+ */
+function sanitizeArray($data, $rules = []) {
+    $sanitized = [];
+    
+    foreach ($data as $key => $value) {
+        $type = isset($rules[$key]) ? $rules[$key] : 'string';
+        
+        if (is_array($value)) {
+            $sanitized[$key] = sanitizeArray($value, $rules);
+        } else {
+            $sanitized[$key] = sanitizeInput($value, $type);
+        }
+    }
+    
+    return $sanitized;
+}
+
+/**
+ * Validate credit card number format (Luhn algorithm)
+ */
+function validateCardNumber($cardNumber) {
+    $cardNumber = preg_replace('/\D/', '', $cardNumber);
+    
+    if (strlen($cardNumber) < 13 || strlen($cardNumber) > 19) {
+        return false;
+    }
+    
+    // Luhn algorithm
+    $sum = 0;
+    $numDigits = strlen($cardNumber);
+    $parity = $numDigits % 2;
+    
+    for ($i = 0; $i < $numDigits; $i++) {
+        $digit = (int)$cardNumber[$i];
+        if ($i % 2 == $parity) {
+            $digit *= 2;
+        }
+        if ($digit > 9) {
+            $digit -= 9;
+        }
+        $sum += $digit;
+    }
+    
+    return ($sum % 10) == 0;
+}
+
+/**
+ * Validate CVV format
+ */
+function validateCVV($cvv) {
+    $cvv = preg_replace('/\D/', '', $cvv);
+    return strlen($cvv) >= 3 && strlen($cvv) <= 4;
+}
+
+/**
+ * Validate expiration date format (MM/YY or MM/YYYY)
+ */
+function validateExpiryDate($expiry) {
+    $expiry = trim($expiry);
+    
+    // Match MM/YY or MM/YYYY format
+    if (!preg_match('/^(\d{2})\/(\d{2,4})$/', $expiry, $matches)) {
+        return false;
+    }
+    
+    $month = (int)$matches[1];
+    $year = (int)$matches[2];
+    
+    // Convert 2-digit year to 4-digit
+    if ($year < 100) {
+        $year += 2000;
+    }
+    
+    // Validate month
+    if ($month < 1 || $month > 12) {
+        return false;
+    }
+    
+    // Check if card is expired
+    $currentYear = (int)date('Y');
+    $currentMonth = (int)date('m');
+    
+    if ($year < $currentYear) {
+        return false;
+    }
+    
+    if ($year == $currentYear && $month < $currentMonth) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Rate limiting helper
+ */
+function checkRateLimitAdvanced($key, $maxAttempts = 5, $windowSeconds = 300) {
+    initSecureSession();
+    
+    $rateLimitKey = 'rate_limit_' . $key;
+    $now = time();
+    
+    if (!isset($_SESSION[$rateLimitKey])) {
+        $_SESSION[$rateLimitKey] = [];
+    }
+    
+    // Clean old entries
+    $_SESSION[$rateLimitKey] = array_filter($_SESSION[$rateLimitKey], function($timestamp) use ($now, $windowSeconds) {
+        return ($now - $timestamp) < $windowSeconds;
+    });
+    
+    // Check limit
+    if (count($_SESSION[$rateLimitKey]) >= $maxAttempts) {
+        return false;
+    }
+    
+    // Add current attempt
+    $_SESSION[$rateLimitKey][] = $now;
+    return true;
+}
+
+/**
+ * Generate secure random token
+ */
+function generateSecureToken($length = 32) {
+    return bin2hex(random_bytes($length / 2));
+}
+
+/**
+ * Hash sensitive data (one-way)
+ */
+function hashSensitiveData($data) {
+    return hash('sha256', $data . AppConfig::DOMAIN);
+}
+
+/**
+ * Validate proxy format
+ */
+function validateProxyFormat($proxy) {
+    $parts = explode(':', trim($proxy));
+    
+    if (count($parts) !== 4) {
+        return false;
+    }
+    
+    list($host, $port, $user, $pass) = $parts;
+    
+    // Validate host
+    if (!filter_var($host, FILTER_VALIDATE_IP) && !filter_var($host, FILTER_VALIDATE_DOMAIN)) {
+        return false;
+    }
+    
+    // Validate port
+    $port = (int)$port;
+    if ($port < 1 || $port > 65535) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Enhanced error logging with context
+ */
+function logErrorAdvanced($message, $context = [], $level = 'error') {
+    $logEntry = [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'level' => $level,
+        'message' => $message,
+        'context' => $context,
+        'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+    ];
+    
+    if (isset($_SESSION['user_id'])) {
+        $logEntry['user_id'] = $_SESSION['user_id'];
+    }
+    
+    error_log(json_encode($logEntry));
+}
+
+/**
+ * Safe JSON encoding with error handling
+ */
+function safeJsonEncode($data) {
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        logError('JSON encoding error: ' . json_last_error_msg(), ['data' => $data]);
+        return json_encode(['error' => 'Encoding failed']);
+    }
+    
+    return $json;
+}
+
+/**
+ * Safe JSON decoding with error handling
+ */
+function safeJsonDecode($json, $assoc = true) {
+    $data = json_decode($json, $assoc);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        logError('JSON decoding error: ' . json_last_error_msg(), ['json' => substr($json, 0, 500)]);
+        return null;
+    }
+    
+    return $data;
+}
 ?>
