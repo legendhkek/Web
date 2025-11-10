@@ -164,7 +164,8 @@ function canAccessPage($page_name) {
         'payment_config.php',
         'financial_reports.php',
         'database_backup.php',
-        'role_management.php'
+        'role_management.php',
+        'stripe_auth_sites.php'
     ];
     
     if (in_array($page_name, $owner_only_pages)) {

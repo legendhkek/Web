@@ -350,6 +350,23 @@ $db->updatePresence($userId);
                 </a>
             </div>
 
+                <div class="tool-card">
+                    <div class="tool-icon">
+                        <i class="fa-brands fa-stripe"></i>
+                    </div>
+                    <h3 class="tool-title">Stripe Auth Checker</h3>
+                    <p class="tool-description">
+                        Rotate through curated Stripe-enabled Shopify stores and receive live/dead responses instantly.
+                    </p>
+                    <div class="tool-cost">
+                        <i class="fas fa-coins"></i>
+                        1 Credit per check
+                    </div>
+                    <a href="stripe_auth.php" class="tool-btn" <?php echo $user['credits'] < 1 ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
+                        Launch Tool
+                    </a>
+                </div>
+
             <div class="tool-card">
                 <div class="tool-icon">
                     <i class="fas fa-globe"></i>

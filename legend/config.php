@@ -59,6 +59,7 @@ class SiteConfig {
 class AppConfig {
     const DOMAIN = 'https://autoshopify.sonugamingop.tech';
     const CHECKER_API_URL = 'https://redbugxapi.sonugamingop.tech/autosh.php';
+    const PYTHON_BINARY = 'python3';
     const SESSION_TIMEOUT = 86400; // 24 hours
     const DAILY_CREDIT_AMOUNT = 10; // Fallback
     const MAX_CONCURRENT_CHECKS = 20;

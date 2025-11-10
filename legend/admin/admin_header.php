@@ -199,6 +199,9 @@ $db = Database::getInstance();
             <a class="nav-link text-white" href="database_backup.php">
                 <i class="bi bi-database"></i> Database Backup
             </a>
+            <a class="nav-link text-white" href="stripe_auth_sites.php">
+                <i class="bi bi-list-stars"></i> Stripe Auth Sites
+            </a>
             <a class="nav-link text-white" href="role_management.php">
                 <i class="bi bi-person-badge"></i> Role Management
             </a>
