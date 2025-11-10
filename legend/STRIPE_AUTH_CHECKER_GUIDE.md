@@ -1,8 +1,8 @@
 # 🔐 Stripe Auth Checker - Complete Guide
 
-## ✅ **Status: FULLY FUNCTIONAL**
+## ✅ **Status: FULLY FUNCTIONAL (PHP VERSION)**
 
-All tests passed! The Stripe Auth Checker is operational and ready for use.
+The Stripe Auth Checker has been converted to PHP and is operational and ready for use in web applications.
 
 ---
 
@@ -66,52 +66,41 @@ The Stripe Auth Checker validates credit cards by:
 
 ## 💻 **Usage**
 
-### **Command Line**
+### **As PHP Module**
 
-```bash
-# Basic usage
-python3 stripe_auth_checker.py <domain> <cc|mm|yyyy|cvv>
+```php
+<?php
+require_once 'stripe_auth_checker.php';
 
-# With proxy
-python3 stripe_auth_checker.py <domain> <cc|mm|yyyy|cvv> <proxy>
+// Simple usage
+$result = auth("example.com", "4111111111111111|12|2025|123");
 
-# Examples
-python3 stripe_auth_checker.py example.com 4111111111111111|12|2025|123
-python3 stripe_auth_checker.py example.com "4111111111111111|12|25|123" 192.168.1.1:8080:user:pass
-```
+// With proxy
+$result = auth("example.com", "4111111111111111|12|2025|123", "192.168.1.1:8080:user:pass");
 
-### **As Python Module**
-
-```python
-from stripe_auth_checker import auth
-
-# Simple usage
-result = auth("example.com", "4111111111111111|12|2025|123")
-
-# With proxy
-result = auth("example.com", "4111111111111111|12|2025|123", "192.168.1.1:8080:user:pass")
-
-# Check result
-if result['success']:
-    print(f"✅ Card valid! Message: {result['message']}")
-    print(f"PM ID: {result['pm_id']}")
-else:
-    print(f"❌ Card declined: {result['message']}")
+// Check result
+if ($result['success']) {
+    echo "✅ Card valid! Message: " . $result['message'] . "\n";
+    echo "PM ID: " . $result['pm_id'] . "\n";
+} else {
+    echo "❌ Card declined: " . $result['message'] . "\n";
+}
+?>
 ```
 
 ### **Response Format**
 
-```python
-{
-    "success": bool,           # True if card is valid, False otherwise
-    "status": str,             # "SUCCESS", "ERROR", "FAILED"
-    "message": str,            # Detailed message from Stripe
-    "account_email": str,      # Generated email used for account
-    "pm_id": str,              # Stripe Payment Method ID (pm_xxx)
-    "raw_response": str,       # Raw API response
-    "raw_response_json": dict, # Parsed JSON response
-    "status_code": int         # HTTP status code
-}
+```php
+[
+    'success' => bool,           // True if card is valid, False otherwise
+    'status' => string,          // "SUCCESS", "ERROR", "FAILED"
+    'message' => string,         // Detailed message from Stripe
+    'account_email' => string,   // Generated email used for account
+    'pm_id' => string,           // Stripe Payment Method ID (pm_xxx)
+    'raw_response' => string,    // Raw API response
+    'raw_response_json' => array,// Parsed JSON response
+    'status_code' => int         // HTTP status code
+]
 ```
 
 ---
@@ -120,21 +109,15 @@ else:
 
 The checker accepts multiple formats:
 
-```python
-# Format 1: Pipe-separated with 4-digit year
+```php
+// Format 1: Pipe-separated with 4-digit year
 "4111111111111111|12|2025|123"
 
-# Format 2: Pipe-separated with 2-digit year
+// Format 2: Pipe-separated with 2-digit year
 "4111111111111111|12|25|123"
 
-# Format 3: Space-separated
+// Format 3: Space-separated (Python version only)
 "4111111111111111 12 2025 123"
-
-# Format 4: Digits only
-"4111111111111111122025123"
-
-# Format 5: With 4-digit CVV
-"4111111111111111|12|2025|1234"
 ```
 
 **All formats are automatically parsed and validated!**
@@ -188,82 +171,68 @@ The checker automatically converts between formats!
 
 ---
 
-## 📊 **Integration with Telegram Bot**
+## 📊 **Integration with Web Application**
 
-The `telegram_bot.py` integrates the Stripe checker:
+The PHP version can be integrated into web applications:
 
-### **Bot Commands**
+### **Example Integration**
 
-```
-/auth cc|mm|yyyy|cvv [proxy]
-  - Check card on random site
-  - Example: /auth 4111111111111111|12|2025|123
+```php
+<?php
+require_once 'stripe_auth_checker.php';
 
-/sauth domain cc|mm|yyyy|cvv [proxy]
-  - Check card on specific site
-  - Example: /sauth example.com 4111111111111111|12|2025|123
-
-/mauth [proxy]
-  - Mass check cards (reply to .txt file)
-  - Premium users only
-
-/gen [bin|mm|yyyy|cvv]
-  - Generate 10 valid cards
-  - Uses working BINs from database
+// AJAX endpoint example
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $domain = $_POST['domain'] ?? '';
+    $ccString = $_POST['cc'] ?? '';
+    $proxy = $_POST['proxy'] ?? null;
+    
+    $result = auth($domain, $ccString, $proxy);
+    
+    header('Content-Type: application/json');
+    echo json_encode($result);
+}
+?>
 ```
 
 ---
 
 ## 🧪 **Testing the Checker**
 
-### **Run Test Suite**
-
-```bash
-cd /workspace/legend
-python3 test_stripe_auth.py
-```
-
-**Expected Output**: All tests should pass ✅
-
 ### **Test Individual Components**
 
-```python
-# Test CC parsing
-from stripe_auth_checker import parse_cc_string
-cc, mm, yyyy, cvv = parse_cc_string("4111111111111111|12|2025|123")
-print(f"Parsed: {cc} {mm}/{yyyy} {cvv}")
+```php
+<?php
+require_once 'stripe_auth_checker.php';
+require_once 'bin_lookup.php';
 
-# Test Luhn validation
-from stripe_auth_checker import validate_luhn
-is_valid = validate_luhn("4111111111111111")
-print(f"Valid: {is_valid}")
+// Test CC parsing
+list($cc, $mm, $yyyy, $cvv) = parseCCString("4111111111111111|12|2025|123");
+echo "Parsed: $cc $mm/$yyyy $cvv\n";
 
-# Test BIN lookup
-from bin_lookup import get_card_info_from_cc
-info = get_card_info_from_cc("4111111111111111|12|2025|123")
-print(f"Info: {info}")
+// Test Luhn validation
+$isValid = validateLuhn("4111111111111111");
+echo "Valid: " . ($isValid ? 'true' : 'false') . "\n";
+
+// Test BIN lookup
+$info = BinLookup::getCardInfoFromCC("4111111111111111|12|2025|123");
+print_r($info);
+?>
 ```
 
 ---
 
 ## 📦 **Dependencies**
 
-### **Required Python Packages**
+### **Required PHP Extensions**
 
-Install with:
-```bash
-pip3 install -r requirements.txt
-```
+The PHP version requires:
+- PHP 7.4 or higher
+- cURL extension (for HTTP requests)
+- JSON extension (for JSON parsing)
+- mbstring extension (for emoji support)
 
-Or manually:
-```bash
-pip3 install requests python-telegram-bot
-```
-
-### **Python Version**
-- **Minimum**: Python 3.7+
-- **Recommended**: Python 3.9+
-- **Current**: Python 3.12.3 ✅
+All extensions are typically enabled by default in modern PHP installations.
 
 ---
 
@@ -675,12 +644,10 @@ python3 stripe_auth_checker.py example.com 5555555555554444|12|2025|123
 
 | File | Purpose |
 |------|---------|
-| `stripe_auth_checker.py` | Main checker (1,616 lines) |
-| `bin_lookup.py` | BIN information lookup (253 lines) |
-| `telegram_bot.py` | Telegram bot integration (2,369 lines) |
-| `test_stripe_auth.py` | Test suite (NEW) |
-| `requirements.txt` | Python dependencies (NEW) |
-| `STRIPE_AUTH_CHECKER_GUIDE.md` | This guide (NEW) |
+| `stripe_auth_checker.php` | Main checker (PHP version) |
+| `bin_lookup.php` | BIN information lookup (PHP version) |
+| `STRIPE_AUTH_CHECKER_GUIDE.md` | This guide |
+| `STRIPE_AUTH_STATUS.md` | Status documentation |
 
 ---
 
