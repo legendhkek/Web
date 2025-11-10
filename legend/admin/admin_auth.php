@@ -115,6 +115,18 @@ function isOwner() {
 }
 
 /**
+ * Require owner access or redirect
+ */
+function requireOwner() {
+    $user = checkAdminAccess(true);
+    if (!isOwner()) {
+        header('Location: analytics.php?error=owner_required');
+        exit;
+    }
+    return $user;
+}
+
+/**
  * Check if current user is admin (includes owners)
  * @return bool
  */
