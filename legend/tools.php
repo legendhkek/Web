@@ -405,17 +405,34 @@ $db->updatePresence($userId);
                 <div class="tool-icon">
                     <i class="fas fa-search"></i>
                 </div>
-                <h3 class="tool-title">OSINT Tools</h3>
+                <h3 class="tool-title">BIN Lookup</h3>
                 <p class="tool-description">
-                    Open source intelligence gathering and reconnaissance utilities
+                    Get detailed card information from BIN - Bank, Type, Country and more
                 </p>
-                <div class="tool-cost">
-                    <i class="fas fa-coins"></i>
-                    3 Credits per lookup
+                <div class="tool-cost" style="background: rgba(0, 255, 136, 0.1); color: #00ff88;">
+                    <i class="fas fa-gift"></i>
+                    FREE - No Credits
                 </div>
-                <button class="tool-btn" disabled>
-                    Coming Soon
-                </button>
+                <a href="bin_lookup_tool.php" class="tool-btn">
+                    Launch Tool
+                </a>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <i class="fas fa-magic"></i>
+                </div>
+                <h3 class="tool-title">Card Generator</h3>
+                <p class="tool-description">
+                    Generate valid credit card numbers with Luhn algorithm for testing
+                </p>
+                <div class="tool-cost" style="background: rgba(0, 255, 136, 0.1); color: #00ff88;">
+                    <i class="fas fa-gift"></i>
+                    FREE - No Credits
+                </div>
+                <a href="card_generator_tool.php" class="tool-btn">
+                    Launch Tool
+                </a>
             </div>
         </div>
 
