@@ -75,9 +75,9 @@ class AppConfig {
     const OWNER_IDS = [5652614329]; // @LEGEND_BL
     const OWNER_USERNAME = 'LEGEND_BL';
     
-    // Credit costs for tools
-    const CARD_CHECK_COST = 1; // Fallback
-    const SITE_CHECK_COST = 1; // Fallback
+    // Credit costs for tools - 1 credit = 1 check
+    const CARD_CHECK_COST = 1;
+    const SITE_CHECK_COST = 1;
 }
 
 // Security Headers

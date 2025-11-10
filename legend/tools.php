@@ -343,9 +343,9 @@ $db->updatePresence($userId);
                 </p>
                 <div class="tool-cost">
                     <i class="fas fa-coins"></i>
-                    <?php echo AppConfig::CARD_CHECK_COST; ?> Credit per check
+                    1 Credit per check
                 </div>
-                <a href="card_checker.php" class="tool-btn" <?php echo $user['credits'] < AppConfig::CARD_CHECK_COST ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
+                <a href="card_checker.php" class="tool-btn" <?php echo $user['credits'] < 1 ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
                     Launch Tool
                 </a>
             </div>
@@ -360,9 +360,9 @@ $db->updatePresence($userId);
                 </p>
                 <div class="tool-cost">
                     <i class="fas fa-coins"></i>
-                    <?php echo AppConfig::SITE_CHECK_COST; ?> Credit per check
+                    1 Credit per check
                 </div>
-                <a href="site_checker.php" class="tool-btn" <?php echo $user['credits'] < AppConfig::SITE_CHECK_COST ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
+                <a href="site_checker.php" class="tool-btn" <?php echo $user['credits'] < 1 ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
                     Launch Tool
                 </a>
             </div>
@@ -386,19 +386,53 @@ $db->updatePresence($userId);
 
             <div class="tool-card">
                 <div class="tool-icon">
-                    <i class="fas fa-search"></i>
+                    <i class="fas fa-key"></i>
                 </div>
-                <h3 class="tool-title">OSINT Tools</h3>
+                <h3 class="tool-title">Stripe Auth Checker</h3>
                 <p class="tool-description">
-                    Open source intelligence gathering and reconnaissance utilities
+                    Automatically create accounts and add payment methods to Stripe-powered sites
                 </p>
                 <div class="tool-cost">
                     <i class="fas fa-coins"></i>
-                    3 Credits per lookup
+                    1 Credit per check
                 </div>
-                <button class="tool-btn" disabled>
-                    Coming Soon
-                </button>
+                <a href="stripe_auth_tool.php" class="tool-btn" <?php echo $user['credits'] < 1 ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
+                    Launch Tool
+                </a>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3 class="tool-title">BIN Lookup</h3>
+                <p class="tool-description">
+                    Get card type, bank name, and country information from BIN (Bank Identification Number)
+                </p>
+                <div class="tool-cost" style="background: rgba(0, 230, 118, 0.1); border-color: rgba(0, 230, 118, 0.3);">
+                    <i class="fas fa-gift"></i>
+                    FREE
+                </div>
+                <a href="bin_lookup_tool.php" class="tool-btn">
+                    Launch Tool
+                </a>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <i class="fas fa-magic"></i>
+                </div>
+                <h3 class="tool-title">CC Generator</h3>
+                <p class="tool-description">
+                    Generate valid credit card numbers from BIN using Luhn algorithm
+                </p>
+                <div class="tool-cost" style="background: rgba(0, 230, 118, 0.1); border-color: rgba(0, 230, 118, 0.3);">
+                    <i class="fas fa-gift"></i>
+                    FREE
+                </div>
+                <a href="cc_generator_tool.php" class="tool-btn">
+                    Launch Tool
+                </a>
             </div>
         </div>
 

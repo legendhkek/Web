@@ -623,7 +623,7 @@ $site_input_raw = isset($_POST['sites_input']) ? trim($_POST['sites_input']) : '
         }
 
         .result-card.charged { border-left-color: var(--status-charge); }
-        .result-card.approved { border-left-color: var(--status-live); }
+        .result-card.approved, .result-card.live { border-left-color: var(--status-live); }
         .result-card.declined, .result-card.api_error { border-left-color: var(--status-dead); }
         .result-card.checking { border-left-color: var(--status-checking); }
 
