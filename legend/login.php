@@ -312,6 +312,36 @@ if (isset($_GET['id']) && isset($_GET['hash'])) {
             text-decoration: underline;
         }
 
+        /* Loading Animation */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Security Badge */
+        .security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #86efac;
+            margin-top: 16px;
+        }
+
         @media (max-width: 640px) {
             .login-container {
                 padding: 32px 24px;
@@ -330,6 +360,14 @@ if (isset($_GET['id']) && isset($_GET['hash'])) {
     </style>
 </head>
 <body>
+    <script nonce="<?php echo $nonce; ?>">
+        // Theme Management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.body.classList.toggle('light-mode', savedTheme === 'light');
+        }
+        initTheme();
+    </script>
     <div class="login-container">
         <div class="logo-section">
             <div class="logo">
@@ -403,6 +441,10 @@ if (isset($_GET['id']) && isset($_GET['hash'])) {
             <div class="security-notice">
                 <i class="fas fa-lock"></i>
                 Your data is protected with end-to-end encryption and secure authentication protocols.
+                <div class="security-badge">
+                    <i class="fas fa-shield-check"></i>
+                    SSL Secured
+                </div>
             </div>
         </div>
 

@@ -29,12 +29,36 @@ $db->updatePresence($userId);
             box-sizing: border-box;
         }
 
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #2a2a2a;
+            --bg-card-hover: #333333;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --accent-blue: #1da1f2;
+            --accent-green: #00d4aa;
+            --accent-purple: #8b5cf6;
+            --border-color: #3a3a3a;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-            color: #ffffff;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
             padding-bottom: 80px;
+            transition: background 0.3s ease;
+        }
+
+        body.light-mode {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f0f0f0;
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --border-color: #e0e0e0;
         }
 
         .header {
@@ -92,9 +116,83 @@ $db->updatePresence($userId);
             padding: 2rem 1rem;
         }
 
+        /* Search and Filter Bar */
+        .search-filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        .sort-select {
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
         .page-title {
             text-align: center;
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
         }
 
         .page-title h1 {
@@ -119,15 +217,18 @@ $db->updatePresence($userId);
         }
 
         .tool-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 20px;
             padding: 2rem;
             text-align: center;
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
+        }
+
+        .tool-card.hidden {
+            display: none;
         }
 
         .tool-card::before {
@@ -332,8 +433,26 @@ $db->updatePresence($userId);
             <p>Professional tools for security testing and validation</p>
         </div>
 
-        <div class="tools-grid">
-            <div class="tool-card">
+        <!-- Search and Filter Bar -->
+        <div class="search-filter-bar">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="toolSearch" placeholder="Search tools..." autocomplete="off">
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="free">Free</button>
+                <button class="filter-btn" data-filter="paid">Paid</button>
+            </div>
+            <select class="sort-select" id="sortSelect">
+                <option value="name">Sort by Name</option>
+                <option value="cost">Sort by Cost</option>
+                <option value="popularity">Sort by Popularity</option>
+            </select>
+        </div>
+
+        <div class="tools-grid" id="toolsGrid">
+            <div class="tool-card" data-name="card checker" data-cost="<?php echo AppConfig::CARD_CHECK_COST; ?>" data-type="paid" data-popularity="5">
                 <div class="tool-icon">
                     <i class="fas fa-credit-card"></i>
                 </div>
@@ -350,7 +469,7 @@ $db->updatePresence($userId);
                 </a>
             </div>
 
-            <div class="tool-card">
+            <div class="tool-card" data-name="site checker" data-cost="<?php echo AppConfig::SITE_CHECK_COST; ?>" data-type="paid" data-popularity="4">
                 <div class="tool-icon">
                     <i class="fas fa-globe"></i>
                 </div>
@@ -367,7 +486,7 @@ $db->updatePresence($userId);
                 </a>
             </div>
 
-            <div class="tool-card">
+            <div class="tool-card" data-name="stripe auth checker" data-cost="1" data-type="paid" data-popularity="5">
                 <div class="tool-icon">
                     <i class="fas fa-stripe-s"></i>
                 </div>
@@ -384,7 +503,7 @@ $db->updatePresence($userId);
                 </a>
             </div>
 
-            <div class="tool-card">
+            <div class="tool-card" data-name="bin lookup" data-cost="0" data-type="free" data-popularity="3">
                 <div class="tool-icon">
                     <i class="fas fa-search"></i>
                 </div>
@@ -401,7 +520,7 @@ $db->updatePresence($userId);
                 </a>
             </div>
 
-            <div class="tool-card">
+            <div class="tool-card" data-name="bin generator" data-cost="0" data-type="free" data-popularity="3">
                 <div class="tool-icon">
                     <i class="fas fa-magic"></i>
                 </div>
@@ -418,7 +537,7 @@ $db->updatePresence($userId);
                 </a>
             </div>
 
-            <div class="tool-card">
+            <div class="tool-card" data-name="security scanner" data-cost="5" data-type="paid" data-popularity="2">
                 <div class="tool-icon">
                     <i class="fas fa-shield-alt"></i>
                 </div>
@@ -434,6 +553,11 @@ $db->updatePresence($userId);
                     Coming Soon
                 </button>
             </div>
+        </div>
+
+        <div id="noResults" style="display: none; text-align: center; padding: 3rem; color: var(--text-secondary);">
+            <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+            <p>No tools found matching your search criteria.</p>
         </div>
 
         <?php
@@ -484,6 +608,96 @@ $db->updatePresence($userId);
     </div>
 
     <script nonce="<?php echo $nonce; ?>">
+        // Theme Management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.body.classList.toggle('light-mode', savedTheme === 'light');
+        }
+        initTheme();
+
+        // Search and Filter Functionality
+        const searchInput = document.getElementById('toolSearch');
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const sortSelect = document.getElementById('sortSelect');
+        const toolsGrid = document.getElementById('toolsGrid');
+        const toolCards = document.querySelectorAll('.tool-card');
+        const noResults = document.getElementById('noResults');
+
+        let currentFilter = 'all';
+        let currentSort = 'name';
+        let searchQuery = '';
+
+        function filterAndSortTools() {
+            let visibleCount = 0;
+
+            toolCards.forEach(card => {
+                const name = card.dataset.name.toLowerCase();
+                const type = card.dataset.type;
+                const matchesSearch = name.includes(searchQuery.toLowerCase());
+                const matchesFilter = currentFilter === 'all' || 
+                    (currentFilter === 'free' && type === 'free') ||
+                    (currentFilter === 'paid' && type === 'paid');
+
+                if (matchesSearch && matchesFilter) {
+                    card.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+
+            // Sort visible cards
+            const visibleCards = Array.from(toolCards).filter(card => !card.classList.contains('hidden'));
+            visibleCards.sort((a, b) => {
+                if (currentSort === 'name') {
+                    return a.dataset.name.localeCompare(b.dataset.name);
+                } else if (currentSort === 'cost') {
+                    return parseInt(a.dataset.cost) - parseInt(b.dataset.cost);
+                } else if (currentSort === 'popularity') {
+                    return parseInt(b.dataset.popularity) - parseInt(a.dataset.popularity);
+                }
+                return 0;
+            });
+
+            // Reorder in DOM
+            visibleCards.forEach(card => {
+                toolsGrid.appendChild(card);
+            });
+
+            // Show/hide no results message
+            noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+
+        // Search input handler
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            filterAndSortTools();
+        });
+
+        // Filter button handlers
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                filterAndSortTools();
+            });
+        });
+
+        // Sort select handler
+        sortSelect.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            filterAndSortTools();
+        });
+
+        // Keyboard shortcut for search
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                searchInput.focus();
+            }
+        });
+
         // Update presence every 2 minutes
         setInterval(() => {
             fetch('api/presence.php', { method: 'POST' });
