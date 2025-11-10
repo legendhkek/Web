@@ -1,0 +1,6 @@
+{
+  "bot_name_override": "WebkeBot",
+  "telegram_bot_token": "7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU",
+  "debug_auth": true,
+  "allow_insecure_telegram_auth": false
+}
