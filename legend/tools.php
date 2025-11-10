@@ -386,6 +386,40 @@ $db->updatePresence($userId);
 
             <div class="tool-card">
                 <div class="tool-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3 class="tool-title">BIN Lookup</h3>
+                <p class="tool-description">
+                    Get detailed information about any BIN number - card type, bank, country
+                </p>
+                <div class="tool-cost" style="background: rgba(0, 230, 118, 0.1);">
+                    <i class="fas fa-gift"></i>
+                    FREE Tool
+                </div>
+                <a href="bin_lookup_tool.php" class="tool-btn">
+                    Launch Tool
+                </a>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <i class="fas fa-magic"></i>
+                </div>
+                <h3 class="tool-title">BIN Generator</h3>
+                <p class="tool-description">
+                    Generate valid credit card numbers from BIN with Luhn algorithm validation
+                </p>
+                <div class="tool-cost" style="background: rgba(0, 230, 118, 0.1);">
+                    <i class="fas fa-gift"></i>
+                    FREE Tool
+                </div>
+                <a href="bin_generator_tool.php" class="tool-btn">
+                    Launch Tool
+                </a>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
                     <i class="fas fa-shield-alt"></i>
                 </div>
                 <h3 class="tool-title">Security Scanner</h3>
@@ -395,23 +429,6 @@ $db->updatePresence($userId);
                 <div class="tool-cost">
                     <i class="fas fa-coins"></i>
                     5 Credits per scan
-                </div>
-                <button class="tool-btn" disabled>
-                    Coming Soon
-                </button>
-            </div>
-
-            <div class="tool-card">
-                <div class="tool-icon">
-                    <i class="fas fa-search"></i>
-                </div>
-                <h3 class="tool-title">OSINT Tools</h3>
-                <p class="tool-description">
-                    Open source intelligence gathering and reconnaissance utilities
-                </p>
-                <div class="tool-cost">
-                    <i class="fas fa-coins"></i>
-                    3 Credits per lookup
                 </div>
                 <button class="tool-btn" disabled>
                     Coming Soon
