@@ -194,11 +194,27 @@ class Database {
             return $this->getFallback()->deductCredits($telegramId, $amount);
         }
         
-        $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
-        return $users->updateOne(
-            ['telegram_id' => $telegramId, 'credits' => ['$gte' => $amount]],
-            ['$inc' => ['credits' => -$amount], '$set' => ['updated_at' => new MongoDB\BSON\UTCDateTime()]]
-        )->getModifiedCount() > 0;
+        try {
+            $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+            if (!$users) {
+                logError('Failed to get users collection for credit deduction', ['telegram_id' => $telegramId]);
+                return false;
+            }
+            
+            $result = $users->updateOne(
+                ['telegram_id' => (int)$telegramId, 'credits' => ['$gte' => (int)$amount]],
+                ['$inc' => ['credits' => -(int)$amount], '$set' => ['updated_at' => new MongoDB\BSON\UTCDateTime()]]
+            );
+            
+            return $result->getModifiedCount() > 0;
+        } catch (Exception $e) {
+            logError('Error deducting credits: ' . $e->getMessage(), [
+                'telegram_id' => $telegramId,
+                'amount' => $amount,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
     }
     
     public function addCredits($telegramId, $amount) {
@@ -212,14 +228,30 @@ class Database {
                 }
             }
             $this->getFallback()->saveData('users', $users);
-            return;
+            return true;
         }
         
-        $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
-        $users->updateOne(
-            ['telegram_id' => $telegramId],
-            ['$inc' => ['credits' => $amount], '$set' => ['updated_at' => new MongoDB\BSON\UTCDateTime()]]
-        );
+        try {
+            $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+            if (!$users) {
+                logError('Failed to get users collection for adding credits', ['telegram_id' => $telegramId]);
+                return false;
+            }
+            
+            $result = $users->updateOne(
+                ['telegram_id' => (int)$telegramId],
+                ['$inc' => ['credits' => (int)$amount], '$set' => ['updated_at' => new MongoDB\BSON\UTCDateTime()]]
+            );
+            
+            return $result->getModifiedCount() > 0;
+        } catch (Exception $e) {
+            logError('Error adding credits: ' . $e->getMessage(), [
+                'telegram_id' => $telegramId,
+                'amount' => $amount,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
     }
     
     // Daily credit claim

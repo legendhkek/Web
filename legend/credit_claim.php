@@ -27,69 +27,82 @@ if (!$user) {
 $message = '';
 $message_type = '';
 
-// Handle form submissions
+// Handle form submissions with CSRF protection
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-    
-    switch ($action) {
-        case 'claim_premium':
-            $code = trim($_POST['code'] ?? '');
+    // Verify CSRF token
+    $csrf_token = $_POST['csrf_token'] ?? '';
+    if (!verifyCSRFToken($csrf_token)) {
+        $message = "❌ Security error: Invalid request token";
+        $message_type = 'danger';
+    } else {
+        // Rate limiting
+        if (!checkRateLimitAdvanced('code_claim', 5, 300)) {
+            $message = "❌ Too many attempts. Please wait a few minutes.";
+            $message_type = 'danger';
+        } else {
+            $action = sanitizeInput($_POST['action'] ?? '', 'alphanumeric');
             
-            if (!empty($code)) {
-                $result = claimPremiumCode($code, $telegram_id);
-                if ($result['success']) {
-                    $message = "🎉 Congratulations! Your account has been upgraded to {$result['role']} level!";
-                    $message_type = 'success';
-                    // Refresh user data
-                    $user = $db->getUserByTelegramId($telegram_id);
-                    // Notify Telegram channel (toggle)
-                    if (SiteConfig::get('notify_claim', true)) {
-                        $notif = "💎 <b>Premium Code Redeemed</b>\n\n" .
-                             "👤 <b>User:</b> " . formatUserName($user) . "\n" .
-                             "🆔 <b>ID:</b> {$telegram_id}\n" .
-                             "🎟️ <b>Code:</b> " . htmlspecialchars($code) . "\n" .
-                             "⭐ <b>New Role:</b> " . htmlspecialchars(ucfirst($result['role'])) . "\n";
-                        sendTelegramHtml($notif);
+            switch ($action) {
+                case 'claim_premium':
+                    $code = sanitizeInput(trim($_POST['code'] ?? ''), 'alphanumeric');
+                    
+                    if (!empty($code) && strlen($code) <= 50) {
+                        $result = claimPremiumCode($code, $telegram_id);
+                        if ($result['success']) {
+                            $message = "🎉 Congratulations! Your account has been upgraded to {$result['role']} level!";
+                            $message_type = 'success';
+                            // Refresh user data
+                            $user = $db->getUserByTelegramId($telegram_id);
+                            // Notify Telegram channel (toggle)
+                            if (SiteConfig::get('notify_claim', true)) {
+                                $notif = "💎 <b>Premium Code Redeemed</b>\n\n" .
+                                     "👤 <b>User:</b> " . formatUserName($user) . "\n" .
+                                     "🆔 <b>ID:</b> {$telegram_id}\n" .
+                                     "🎟️ <b>Code:</b> " . htmlspecialchars($code) . "\n" .
+                                     "⭐ <b>New Role:</b> " . htmlspecialchars(ucfirst($result['role'])) . "\n";
+                                sendTelegramHtml($notif);
+                            }
+                        } else {
+                            $message = "❌ Error: " . htmlspecialchars($result['error']);
+                            $message_type = 'danger';
+                        }
+                    } else {
+                        $message = "❌ Please enter a valid premium code";
+                        $message_type = 'danger';
                     }
-                } else {
-                    $message = "❌ Error: " . $result['error'];
-                    $message_type = 'danger';
-                }
-            } else {
-                $message = "❌ Please enter a premium code";
-                $message_type = 'danger';
-            }
-            break;
-            
-        case 'claim_credits':
-            $code = trim($_POST['code'] ?? '');
-            
-            if (!empty($code)) {
-                $result = claimCreditCode($code, $telegram_id);
-                if ($result['success']) {
-                    $message = "🎉 Success! You've received {$result['credits']} credits!";
-                    $message_type = 'success';
-                    // Refresh user data
-                    $user = $db->getUserByTelegramId($telegram_id);
-                    // Notify Telegram channel (toggle)
-                    if (SiteConfig::get('notify_claim', true)) {
-                        $notif = "💰 <b>Credit Code Redeemed</b>\n\n" .
-                             "👤 <b>User:</b> " . formatUserName($user) . "\n" .
-                             "🆔 <b>ID:</b> {$telegram_id}\n" .
-                             "🎟️ <b>Code:</b> " . htmlspecialchars($code) . "\n" .
-                             "➕ <b>Credits Added:</b> {$result['credits']}\n" .
-                             "💳 <b>New Balance:</b> " . formatNumber($user['credits'] ?? 0);
-                        sendTelegramHtml($notif);
+                    break;
+                    
+                case 'claim_credits':
+                    $code = sanitizeInput(trim($_POST['code'] ?? ''), 'alphanumeric');
+                    
+                    if (!empty($code) && strlen($code) <= 50) {
+                        $result = claimCreditCode($code, $telegram_id);
+                        if ($result['success']) {
+                            $message = "🎉 Success! You've received {$result['credits']} credits!";
+                            $message_type = 'success';
+                            // Refresh user data
+                            $user = $db->getUserByTelegramId($telegram_id);
+                            // Notify Telegram channel (toggle)
+                            if (SiteConfig::get('notify_claim', true)) {
+                                $notif = "💰 <b>Credit Code Redeemed</b>\n\n" .
+                                     "👤 <b>User:</b> " . formatUserName($user) . "\n" .
+                                     "🆔 <b>ID:</b> {$telegram_id}\n" .
+                                     "🎟️ <b>Code:</b> " . htmlspecialchars($code) . "\n" .
+                                     "➕ <b>Credits Added:</b> {$result['credits']}\n" .
+                                     "💳 <b>New Balance:</b> " . formatNumber($user['credits'] ?? 0);
+                                sendTelegramHtml($notif);
+                            }
+                        } else {
+                            $message = "❌ Error: " . htmlspecialchars($result['error']);
+                            $message_type = 'danger';
+                        }
+                    } else {
+                        $message = "❌ Please enter a valid credit code";
+                        $message_type = 'danger';
                     }
-                } else {
-                    $message = "❌ Error: " . $result['error'];
-                    $message_type = 'danger';
-                }
-            } else {
-                $message = "❌ Please enter a credit code";
-                $message_type = 'danger';
+                    break;
             }
-            break;
+        }
     }
 }
 
@@ -583,6 +596,7 @@ function getUserRecentClaims($telegram_id) {
                                 
                                 <form method="POST">
                                     <input type="hidden" name="action" value="claim_premium">
+                                    <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                                     <div class="mb-3">
                                         <input type="text" class="form-control code-input" name="code" 
                                                placeholder="PREMIUM-XXXXX" maxlength="20" required>
@@ -607,6 +621,7 @@ function getUserRecentClaims($telegram_id) {
                                 
                                 <form method="POST">
                                     <input type="hidden" name="action" value="claim_credits">
+                                    <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                                     <div class="mb-3">
                                         <input type="text" class="form-control code-input" name="code" 
                                                placeholder="CREDIT-XXXXX" maxlength="20" required>
