@@ -1604,11 +1604,8 @@ def main():
     
     result = auth(domain, cc_string, proxy)
     
-    print("\n" + "=" * 60)
-    print("FINAL RESULT:")
-    print("=" * 60)
-    print(json.dumps(result, indent=2))
-    print("=" * 60)
+    # Output JSON for easy parsing by PHP
+    print(json.dumps(result))
 
 
 if __name__ == "__main__":

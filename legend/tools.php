@@ -400,6 +400,23 @@ $db->updatePresence($userId);
                     Coming Soon
                 </button>
             </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3 class="tool-title">Stripe Auth</h3>
+                <p class="tool-description">
+                    Check cards against Stripe-powered sites with automatic site rotation
+                </p>
+                <div class="tool-cost">
+                    <i class="fas fa-coins"></i>
+                    1 Credit per check
+                </div>
+                <a href="stripe_auth_checker.php" class="tool-btn" <?php echo $user['credits'] < 1 ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
+                    Launch Tool
+                </a>
+            </div>
         </div>
 
         <?php
