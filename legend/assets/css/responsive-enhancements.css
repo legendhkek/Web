@@ -1,0 +1,451 @@
+/**
+ * LEGEND CHECKER - Responsive Design Enhancements
+ * Mobile-first responsive styling
+ */
+
+/* Mobile First Approach */
+
+/* Extra Small Devices (Portrait Phones, less than 576px) */
+@media (max-width: 575.98px) {
+    .container {
+        padding: 10px;
+    }
+
+    .header {
+        padding: 12px 10px;
+        flex-wrap: wrap;
+    }
+
+    .logo {
+        font-size: 18px;
+        gap: 8px;
+    }
+
+    .timer-chip {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+
+    .profile-header {
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .profile-name {
+        font-size: 20px;
+    }
+
+    .profile-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 24px;
+    }
+
+    .profile-stats {
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .profile-stat-value {
+        font-size: 18px;
+    }
+
+    .profile-stat-label {
+        font-size: 10px;
+    }
+
+    .cards-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .card {
+        padding: 16px;
+    }
+
+    .card-value {
+        font-size: 24px;
+    }
+
+    .card-title {
+        font-size: 14px;
+    }
+
+    .card-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+
+    .section-title {
+        font-size: 20px;
+        padding-left: 12px;
+    }
+
+    .section-title::before {
+        width: 4px;
+        height: 20px;
+    }
+
+    /* Bottom navigation */
+    .bottom-nav {
+        padding: 12px 0;
+    }
+
+    .nav-item {
+        padding: 6px 8px;
+        gap: 2px;
+    }
+
+    .nav-item i {
+        font-size: 18px;
+    }
+
+    .nav-item span {
+        font-size: 10px;
+    }
+
+    /* Drawer */
+    .drawer {
+        width: 280px;
+    }
+
+    .drawer-header {
+        padding: 16px;
+    }
+
+    .drawer-item {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+
+    /* Search */
+    .search-container {
+        padding: 10px 12px;
+    }
+
+    .search-input {
+        font-size: 14px;
+    }
+
+    /* Quick actions FAB */
+    .quick-actions-fab {
+        bottom: 80px;
+        right: 10px;
+    }
+
+    .fab {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+
+    .fab-action {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+
+    /* Activity feed */
+    .activity-item {
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+
+    /* Modals */
+    .modal-content {
+        width: 95%;
+        margin: 10px;
+        padding: 20px;
+    }
+
+    .confirm-dialog-content {
+        padding: 24px;
+    }
+}
+
+/* Small Devices (Landscape Phones, 576px and up) */
+@media (min-width: 576px) and (max-width: 767.98px) {
+    .container {
+        padding: 16px;
+    }
+
+    .cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .profile-header {
+        padding: 28px;
+    }
+
+    .search-container {
+        padding: 12px 14px;
+    }
+
+    .activity-item {
+        padding: 14px;
+    }
+}
+
+/* Medium Devices (Tablets, 768px and up) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .container {
+        padding: 20px;
+    }
+
+    .cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+
+    .profile-header {
+        padding: 32px;
+    }
+
+    /* Show/hide elements */
+    .mobile-only {
+        display: none !important;
+    }
+}
+
+/* Large Devices (Desktops, 992px and up) */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+    .container {
+        max-width: 960px;
+    }
+
+    .cards-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Extra Large Devices (Large Desktops, 1200px and up) */
+@media (min-width: 1200px) {
+    .container {
+        max-width: 1140px;
+    }
+
+    .cards-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Landscape Orientation */
+@media (orientation: landscape) and (max-height: 500px) {
+    .profile-header {
+        padding: 16px;
+    }
+
+    .profile-content {
+        flex-direction: row;
+    }
+
+    .bottom-nav {
+        padding: 8px 0;
+    }
+
+    body {
+        padding-bottom: 60px;
+    }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger tap targets */
+    button, .btn, .nav-item, .drawer-item {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Remove hover effects */
+    .card:hover, .tool-card:hover {
+        transform: none;
+    }
+
+    /* Optimize animations */
+    * {
+        animation-duration: 0.2s !important;
+    }
+}
+
+/* High DPI Displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    /* Optimize for retina displays */
+    .card-icon, .profile-avatar {
+        image-rendering: -webkit-optimize-contrast;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .bottom-nav,
+    .drawer,
+    .drawer-overlay,
+    .theme-toggle,
+    .fab,
+    .notification-container,
+    .search-container {
+        display: none !important;
+    }
+
+    .container {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    .card, .profile-header {
+        page-break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .card::after,
+    .tool-card::after,
+    .stat-card::after {
+        animation: none !important;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg-primary: #0a0a0a;
+        --bg-secondary: #1a1a1a;
+        --bg-card: #2a2a2a;
+        --text-primary: #ffffff;
+    }
+}
+
+/* Light Mode Support */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f5f5f5;
+        --bg-card: #ffffff;
+        --text-primary: #1a1a1a;
+    }
+}
+
+/* Container Queries (Future-proof) */
+@supports (container-type: inline-size) {
+    .card-container {
+        container-type: inline-size;
+    }
+
+    @container (min-width: 400px) {
+        .card {
+            padding: 24px;
+        }
+    }
+}
+
+/* Utility Classes for Responsive Design */
+.d-mobile-only {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .d-mobile-only {
+        display: block;
+    }
+
+    .d-desktop-only {
+        display: none;
+    }
+}
+
+.text-responsive {
+    font-size: clamp(0.875rem, 2vw, 1rem);
+}
+
+.heading-responsive {
+    font-size: clamp(1.5rem, 5vw, 2.5rem);
+}
+
+/* Flexible Grid */
+.responsive-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 1rem;
+}
+
+/* Safe Area Insets (for devices with notches) */
+@supports (padding: max(0px)) {
+    body {
+        padding-left: max(0px, env(safe-area-inset-left));
+        padding-right: max(0px, env(safe-area-inset-right));
+    }
+
+    .bottom-nav {
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+}
+
+/* Smooth Scrolling on Mobile */
+@media (max-width: 767.98px) {
+    html {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    body {
+        overflow-x: hidden;
+    }
+}
+
+/* Prevent Text Size Adjustment */
+html {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* Improve Click Targets */
+@media (max-width: 767.98px) {
+    a, button, input, select, textarea {
+        touch-action: manipulation;
+    }
+}
+
+/* Optimize Images */
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Responsive Tables */
+@media (max-width: 767.98px) {
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
+/* Flexbox Gap Fallback */
+@supports not (gap: 1rem) {
+    .cards-grid > * {
+        margin-bottom: 1rem;
+    }
+
+    .flex-gap > * {
+        margin-right: 1rem;
+    }
+}
