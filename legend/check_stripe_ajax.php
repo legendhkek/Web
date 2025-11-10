@@ -2,6 +2,8 @@
 require_once 'config.php';
 require_once 'auth.php';
 require_once 'database.php';
+require_once 'stripe_auth_checker.php';
+require_once 'bin_lookup.php';
 
 header('Content-Type: application/json');
 
@@ -62,56 +64,19 @@ try {
         exit;
     }
 
-    // Build Python command
-    $pythonCmd = 'python3 ' . escapeshellarg(__DIR__ . '/stripe_auth_checker.py') . ' ' . 
-                 escapeshellarg($site) . ' ' . 
-                 escapeshellarg($card);
-    
-    if (!empty($proxy)) {
-        $pythonCmd .= ' ' . escapeshellarg($proxy);
-    }
-
-    // Execute Python script with timeout
+    // Use PHP implementation instead of Python
     $startTime = microtime(true);
-    $output = [];
-    $returnVar = 0;
     
-    // Set timeout to 60 seconds
-    exec($pythonCmd . ' 2>&1', $output, $returnVar);
+    // Call PHP checker
+    $result = checkStripeAuth($site, $card, $proxy);
     
     $endTime = microtime(true);
     $responseTime = round($endTime - $startTime, 2);
 
-    // Parse output (last line should be JSON)
-    $outputStr = implode("\n", $output);
-    $lastLine = trim(end($output));
-    
-    // Try to parse JSON from last line
-    $result = @json_decode($lastLine, true);
-    
-    if (!$result || !is_array($result)) {
-        // If JSON parsing failed, create error response
-        $result = [
-            'success' => false,
-            'status' => 'ERROR',
-            'message' => 'Failed to parse checker response: ' . substr($outputStr, 0, 200),
-            'account_email' => null,
-            'pm_id' => null
-        ];
-    }
-
-    // Get card info using BIN lookup
+    // Get card info using BIN lookup (PHP version)
     $cardInfo = null;
     try {
-        $cardParts = explode('|', $card);
-        $ccNumber = $cardParts[0];
-        
-        // Call Python BIN lookup
-        $binCmd = 'python3 ' . escapeshellarg(__DIR__ . '/bin_lookup.py') . ' ' . escapeshellarg($ccNumber);
-        exec($binCmd . ' 2>&1', $binOutput, $binReturnVar);
-        
-        $binJson = trim(end($binOutput));
-        $cardInfo = @json_decode($binJson, true);
+        $cardInfo = BinLookup::getCardInfoFromCC($card);
     } catch (Exception $e) {
         // Ignore BIN lookup errors
     }
