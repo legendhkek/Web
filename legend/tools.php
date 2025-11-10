@@ -352,6 +352,40 @@ $db->updatePresence($userId);
 
             <div class="tool-card">
                 <div class="tool-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3 class="tool-title">Stripe Auth Checker</h3>
+                <p class="tool-description">
+                    Advanced Stripe payment method verification using account creation flow
+                </p>
+                <div class="tool-cost">
+                    <i class="fas fa-coins"></i>
+                    1 Credit per check
+                </div>
+                <a href="stripe_checker.php" class="tool-btn" <?php echo $user['credits'] < 1 ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
+                    Launch Tool
+                </a>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3 class="tool-title">BIN Lookup & Generator</h3>
+                <p class="tool-description">
+                    Free BIN lookup and credit card number generator using Luhn algorithm
+                </p>
+                <div class="tool-cost" style="background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3);">
+                    <i class="fas fa-gift"></i>
+                    FREE Tool
+                </div>
+                <a href="bin_checker.php" class="tool-btn">
+                    Launch Tool
+                </a>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
                     <i class="fas fa-globe"></i>
                 </div>
                 <h3 class="tool-title">Site Checker</h3>
@@ -365,40 +399,6 @@ $db->updatePresence($userId);
                 <a href="site_checker.php" class="tool-btn" <?php echo $user['credits'] < AppConfig::SITE_CHECK_COST ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
                     Launch Tool
                 </a>
-            </div>
-
-            <div class="tool-card">
-                <div class="tool-icon">
-                    <i class="fas fa-shield-alt"></i>
-                </div>
-                <h3 class="tool-title">Security Scanner</h3>
-                <p class="tool-description">
-                    Advanced security scanning and vulnerability assessment tools
-                </p>
-                <div class="tool-cost">
-                    <i class="fas fa-coins"></i>
-                    5 Credits per scan
-                </div>
-                <button class="tool-btn" disabled>
-                    Coming Soon
-                </button>
-            </div>
-
-            <div class="tool-card">
-                <div class="tool-icon">
-                    <i class="fas fa-search"></i>
-                </div>
-                <h3 class="tool-title">OSINT Tools</h3>
-                <p class="tool-description">
-                    Open source intelligence gathering and reconnaissance utilities
-                </p>
-                <div class="tool-cost">
-                    <i class="fas fa-coins"></i>
-                    3 Credits per lookup
-                </div>
-                <button class="tool-btn" disabled>
-                    Coming Soon
-                </button>
             </div>
         </div>
 
