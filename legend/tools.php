@@ -369,6 +369,23 @@ $db->updatePresence($userId);
 
             <div class="tool-card">
                 <div class="tool-icon">
+                    <i class="fas fa-stripe-s"></i>
+                </div>
+                <h3 class="tool-title">Stripe Auth Checker</h3>
+                <p class="tool-description">
+                    Professional Stripe authentication testing with automatic site rotation
+                </p>
+                <div class="tool-cost">
+                    <i class="fas fa-coins"></i>
+                    <?php echo AppConfig::CARD_CHECK_COST; ?> Credit per check
+                </div>
+                <a href="stripe_auth_checker_tool.php" class="tool-btn" <?php echo $user['credits'] < AppConfig::CARD_CHECK_COST ? 'style="pointer-events:none;opacity:0.5;"' : ''; ?>>
+                    Launch Tool
+                </a>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-icon">
                     <i class="fas fa-shield-alt"></i>
                 </div>
                 <h3 class="tool-title">Security Scanner</h3>

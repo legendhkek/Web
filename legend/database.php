@@ -513,5 +513,212 @@ class Database {
             ]
         );
     }
+
+    // ==================== STRIPE AUTH SITE MANAGEMENT ====================
+    
+    public function addStripeAuthSite($domain, $addedBy) {
+        if ($this->useFallback) {
+            // Fallback implementation
+            $sites = $this->getFallback()->loadData('stripe_auth_sites');
+            $sites[] = [
+                'domain' => $domain,
+                'active' => true,
+                'added_by' => $addedBy,
+                'request_count' => 0,
+                'last_used' => null,
+                'created_at' => time(),
+                'updated_at' => time()
+            ];
+            $this->getFallback()->saveData('stripe_auth_sites', $sites);
+            return true;
+        }
+        
+        $sites = $this->getCollection('stripe_auth_sites');
+        
+        // Check if site already exists
+        $existing = $sites->findOne(['domain' => $domain]);
+        if ($existing) {
+            return false; // Site already exists
+        }
+        
+        $siteData = [
+            'domain' => $domain,
+            'active' => true,
+            'added_by' => $addedBy,
+            'request_count' => 0,
+            'last_used' => null,
+            'created_at' => new MongoDB\BSON\UTCDateTime(),
+            'updated_at' => new MongoDB\BSON\UTCDateTime()
+        ];
+        
+        $sites->insertOne($siteData);
+        return true;
+    }
+    
+    public function removeStripeAuthSite($domain) {
+        if ($this->useFallback) {
+            $sites = $this->getFallback()->loadData('stripe_auth_sites');
+            $sites = array_filter($sites, function($s) use ($domain) {
+                return $s['domain'] !== $domain;
+            });
+            $this->getFallback()->saveData('stripe_auth_sites', array_values($sites));
+            return true;
+        }
+        
+        $sites = $this->getCollection('stripe_auth_sites');
+        $sites->deleteOne(['domain' => $domain]);
+        return true;
+    }
+    
+    public function updateStripeAuthSiteStatus($domain, $active) {
+        if ($this->useFallback) {
+            $sites = $this->getFallback()->loadData('stripe_auth_sites');
+            foreach ($sites as &$site) {
+                if ($site['domain'] === $domain) {
+                    $site['active'] = $active;
+                    $site['updated_at'] = time();
+                    break;
+                }
+            }
+            $this->getFallback()->saveData('stripe_auth_sites', $sites);
+            return true;
+        }
+        
+        $sites = $this->getCollection('stripe_auth_sites');
+        $sites->updateOne(
+            ['domain' => $domain],
+            [
+                '$set' => [
+                    'active' => $active,
+                    'updated_at' => new MongoDB\BSON\UTCDateTime()
+                ]
+            ]
+        );
+        return true;
+    }
+    
+    public function getActiveStripeAuthSites() {
+        if ($this->useFallback) {
+            $sites = $this->getFallback()->loadData('stripe_auth_sites');
+            return array_filter($sites, function($s) {
+                return $s['active'] === true;
+            });
+        }
+        
+        $sites = $this->getCollection('stripe_auth_sites');
+        return $sites->find(['active' => true])->toArray();
+    }
+    
+    public function getAllStripeAuthSites() {
+        if ($this->useFallback) {
+            return $this->getFallback()->loadData('stripe_auth_sites');
+        }
+        
+        $sites = $this->getCollection('stripe_auth_sites');
+        return $sites->find([], ['sort' => ['created_at' => -1]])->toArray();
+    }
+    
+    public function getNextStripeAuthSite($userId) {
+        // Get all active sites
+        $activeSites = $this->getActiveStripeAuthSites();
+        
+        if (empty($activeSites)) {
+            return null;
+        }
+        
+        // Sort by request_count (ascending) to get least used site
+        usort($activeSites, function($a, $b) {
+            $countA = $a['request_count'] ?? 0;
+            $countB = $b['request_count'] ?? 0;
+            return $countA - $countB;
+        });
+        
+        // Get the site with lowest request count
+        $selectedSite = $activeSites[0];
+        $domain = $selectedSite['domain'];
+        
+        // Increment request count
+        $this->incrementStripeAuthSiteRequests($domain);
+        
+        return $domain;
+    }
+    
+    public function incrementStripeAuthSiteRequests($domain) {
+        if ($this->useFallback) {
+            $sites = $this->getFallback()->loadData('stripe_auth_sites');
+            foreach ($sites as &$site) {
+                if ($site['domain'] === $domain) {
+                    $site['request_count'] = ($site['request_count'] ?? 0) + 1;
+                    $site['last_used'] = time();
+                    $site['updated_at'] = time();
+                    
+                    // Reset count every 20 requests for rotation
+                    if ($site['request_count'] >= 20) {
+                        $site['request_count'] = 0;
+                    }
+                    break;
+                }
+            }
+            $this->getFallback()->saveData('stripe_auth_sites', $sites);
+            return;
+        }
+        
+        $sites = $this->getCollection('stripe_auth_sites');
+        
+        // Get current count
+        $site = $sites->findOne(['domain' => $domain]);
+        $currentCount = $site['request_count'] ?? 0;
+        
+        // Reset to 0 if reaching 20 (rotation logic)
+        $newCount = ($currentCount + 1) % 20;
+        
+        $sites->updateOne(
+            ['domain' => $domain],
+            [
+                '$set' => [
+                    'request_count' => $newCount,
+                    'last_used' => new MongoDB\BSON\UTCDateTime(),
+                    'updated_at' => new MongoDB\BSON\UTCDateTime()
+                ]
+            ]
+        );
+    }
+    
+    public function logCCCheck($data) {
+        if ($this->useFallback) {
+            $logs = $this->getFallback()->loadData('cc_logs');
+            $data['id'] = uniqid();
+            $data['timestamp'] = time();
+            $logs[] = $data;
+            $this->getFallback()->saveData('cc_logs', $logs);
+            return;
+        }
+        
+        $logs = $this->getCollection(DatabaseConfig::CC_LOGS_COLLECTION);
+        $logs->insertOne($data);
+    }
+    
+    public function sendTelegramNotification($message) {
+        $botToken = TelegramConfig::BOT_TOKEN;
+        $chatId = TelegramConfig::NOTIFICATION_CHAT_ID;
+        
+        $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
+        $postData = [
+            'chat_id' => $chatId,
+            'text' => $message,
+            'parse_mode' => 'Markdown'
+        ];
+        
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postData));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        
+        $response = curl_exec($ch);
+        curl_close($ch);
+        
+        return $response;
+    }
 }
 ?>
