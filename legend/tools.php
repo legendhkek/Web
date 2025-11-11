@@ -537,6 +537,23 @@ $db->updatePresence($userId);
                 </a>
             </div>
 
+            <div class="tool-card" data-name="proxy manager" data-cost="0" data-type="free" data-popularity="4">
+                <div class="tool-icon">
+                    <i class="fas fa-server"></i>
+                </div>
+                <h3 class="tool-title">Proxy Manager</h3>
+                <p class="tool-description">
+                    Add, check, and manage proxies. Only working proxies are stored. Daily checks remove dead proxies.
+                </p>
+                <div class="tool-cost" style="background: rgba(0, 230, 118, 0.1);">
+                    <i class="fas fa-gift"></i>
+                    FREE Tool
+                </div>
+                <a href="proxy_manager.php" class="tool-btn">
+                    Launch Tool
+                </a>
+            </div>
+
             <div class="tool-card" data-name="security scanner" data-cost="5" data-type="paid" data-popularity="2">
                 <div class="tool-icon">
                     <i class="fas fa-shield-alt"></i>

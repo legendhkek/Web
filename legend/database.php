@@ -545,5 +545,213 @@ class Database {
             ]
         );
     }
+    
+    // Proxy Management
+    public function addProxy($proxyData) {
+        if ($this->useFallback) {
+            $proxies = $this->getFallback()->loadData('proxies') ?? [];
+            $proxyData['created_at'] = time();
+            $proxyData['updated_at'] = time();
+            $proxies[] = $proxyData;
+            $this->getFallback()->saveData('proxies', $proxies);
+            return true;
+        }
+        
+        $proxies = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        $proxyData['created_at'] = new MongoDB\BSON\UTCDateTime();
+        $proxyData['updated_at'] = new MongoDB\BSON\UTCDateTime();
+        $proxyData['last_checked'] = new MongoDB\BSON\UTCDateTime();
+        $result = $proxies->insertOne($proxyData);
+        return $result->getInsertedId() !== null;
+    }
+    
+    public function getProxy($proxyId) {
+        if ($this->useFallback) {
+            $proxies = $this->getFallback()->loadData('proxies') ?? [];
+            foreach ($proxies as $proxy) {
+                if (isset($proxy['_id']) && $proxy['_id'] == $proxyId) {
+                    return $proxy;
+                }
+            }
+            return null;
+        }
+        
+        $proxies = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        try {
+            return $proxies->findOne(['_id' => new MongoDB\BSON\ObjectId($proxyId)]);
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+    
+    public function getAllProxies($status = null, $limit = null, $skip = 0) {
+        if ($this->useFallback) {
+            $proxies = $this->getFallback()->loadData('proxies') ?? [];
+            if ($status !== null) {
+                $proxies = array_filter($proxies, function($p) use ($status) {
+                    return ($p['status'] ?? 'unknown') === $status;
+                });
+            }
+            if ($limit !== null) {
+                $proxies = array_slice($proxies, $skip, $limit);
+            }
+            return array_values($proxies);
+        }
+        
+        $proxies = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        $filter = [];
+        if ($status !== null) {
+            $filter['status'] = $status;
+        }
+        
+        $options = ['sort' => ['created_at' => -1]];
+        if ($limit !== null) {
+            $options['limit'] = $limit;
+            $options['skip'] = $skip;
+        }
+        
+        return $proxies->find($filter, $options)->toArray();
+    }
+    
+    public function updateProxyStatus($proxyId, $status, $details = []) {
+        if ($this->useFallback) {
+            $proxies = $this->getFallback()->loadData('proxies') ?? [];
+            foreach ($proxies as &$proxy) {
+                if (isset($proxy['_id']) && $proxy['_id'] == $proxyId) {
+                    $proxy['status'] = $status;
+                    $proxy['updated_at'] = time();
+                    $proxy['last_checked'] = time();
+                    if (!empty($details)) {
+                        $proxy = array_merge($proxy, $details);
+                    }
+                    break;
+                }
+            }
+            $this->getFallback()->saveData('proxies', $proxies);
+            return true;
+        }
+        
+        $proxies = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        $update = [
+            'status' => $status,
+            'updated_at' => new MongoDB\BSON\UTCDateTime(),
+            'last_checked' => new MongoDB\BSON\UTCDateTime()
+        ];
+        if (!empty($details)) {
+            $update = array_merge($update, $details);
+        }
+        
+        try {
+            $result = $proxies->updateOne(
+                ['_id' => new MongoDB\BSON\ObjectId($proxyId)],
+                ['$set' => $update]
+            );
+            return $result->getModifiedCount() > 0;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    public function deleteProxy($proxyId) {
+        if ($this->useFallback) {
+            $proxies = $this->getFallback()->loadData('proxies') ?? [];
+            $proxies = array_filter($proxies, function($p) use ($proxyId) {
+                return !(isset($p['_id']) && $p['_id'] == $proxyId);
+            });
+            $this->getFallback()->saveData('proxies', array_values($proxies));
+            return true;
+        }
+        
+        $proxies = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        try {
+            $result = $proxies->deleteOne(['_id' => new MongoDB\BSON\ObjectId($proxyId)]);
+            return $result->getDeletedCount() > 0;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+    
+    public function deleteDeadProxies() {
+        if ($this->useFallback) {
+            $proxies = $this->getFallback()->loadData('proxies') ?? [];
+            $before = count($proxies);
+            $proxies = array_filter($proxies, function($p) {
+                return ($p['status'] ?? 'unknown') !== 'dead';
+            });
+            $after = count($proxies);
+            $this->getFallback()->saveData('proxies', array_values($proxies));
+            return $before - $after;
+        }
+        
+        $proxies = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        $result = $proxies->deleteMany(['status' => 'dead']);
+        return $result->getDeletedCount();
+    }
+    
+    public function getProxyStats() {
+        if ($this->useFallback) {
+            $proxies = $this->getFallback()->loadData('proxies') ?? [];
+            $total = count($proxies);
+            $live = count(array_filter($proxies, function($p) {
+                return ($p['status'] ?? 'unknown') === 'live';
+            }));
+            $dead = count(array_filter($proxies, function($p) {
+                return ($p['status'] ?? 'unknown') === 'dead';
+            }));
+            return [
+                'total' => $total,
+                'live' => $live,
+                'dead' => $dead,
+                'unknown' => $total - $live - $dead
+            ];
+        }
+        
+        $proxies = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        $total = $proxies->countDocuments([]);
+        $live = $proxies->countDocuments(['status' => 'live']);
+        $dead = $proxies->countDocuments(['status' => 'dead']);
+        
+        return [
+            'total' => $total,
+            'live' => $live,
+            'dead' => $dead,
+            'unknown' => $total - $live - $dead
+        ];
+    }
+    
+    public function proxyExists($proxyString) {
+        if ($this->useFallback) {
+            $proxies = $this->getFallback()->loadData('proxies') ?? [];
+            foreach ($proxies as $proxy) {
+                if (isset($proxy['proxy']) && $proxy['proxy'] === $proxyString) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        $proxies = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        return $proxies->countDocuments(['proxy' => $proxyString]) > 0;
+    }
+    
+    public function getRandomWorkingProxy() {
+        if ($this->useFallback) {
+            $proxies = $this->getFallback()->loadData('proxies') ?? [];
+            $working = array_filter($proxies, function($p) {
+                return ($p['status'] ?? 'unknown') === 'live';
+            });
+            if (empty($working)) {
+                return null;
+            }
+            return $working[array_rand($working)];
+        }
+        
+        $proxies = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        $working = $proxies->find(['status' => 'live'])->toArray();
+        if (empty($working)) {
+            return null;
+        }
+        return $working[array_rand($working)];
+    }
 }
 ?>

@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         
         $ccString = $_POST['card'] ?? '';
         $proxy = $_POST['proxy'] ?? null;
+        $useProxy = isset($_POST['use_proxy']) && $_POST['use_proxy'] === '1';
         
         if (empty($ccString)) {
             echo json_encode([
@@ -43,6 +44,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'message' => 'Card data is required'
             ]);
             exit;
+        }
+        
+        // Get proxy from proxy manager if enabled and not provided
+        if ($useProxy && empty($proxy)) {
+            $proxyData = $db->getRandomWorkingProxy();
+            if ($proxyData) {
+                $proxy = $proxyData['proxy'];
+            }
         }
         
         // Get next site from rotation
@@ -91,6 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Add site info to result
             $result['site_used'] = $site;
             $result['credits_remaining'] = $user['credits'] - STRIPE_AUTH_COST;
+            if ($proxy) {
+                $result['proxy_used'] = substr($proxy, 0, 30) . '...';
+            }
             
             echo json_encode([
                 'success' => true,
@@ -106,6 +118,149 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'message' => 'Check failed: ' . $e->getMessage()
             ]);
         }
+        exit;
+    }
+    
+    if ($_POST['action'] === 'check_mass_cards') {
+        $cardsText = trim($_POST['cards'] ?? '');
+        $useProxy = isset($_POST['use_proxy']) && $_POST['use_proxy'] === '1';
+        
+        if (empty($cardsText)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Cards are required'
+            ]);
+            exit;
+        }
+        
+        // Parse cards (one per line)
+        $cards = array_filter(array_map('trim', explode("\n", $cardsText)));
+        
+        if (empty($cards)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No valid cards found'
+            ]);
+            exit;
+        }
+        
+        $totalCards = count($cards);
+        $totalCost = $totalCards * STRIPE_AUTH_COST;
+        
+        // Check if user has enough credits
+        if ($user['credits'] < $totalCost) {
+            echo json_encode([
+                'success' => false,
+                'message' => "Insufficient credits. You need $totalCost credits for $totalCards cards."
+            ]);
+            exit;
+        }
+        
+        // Deduct all credits upfront
+        if (!$db->deductCredits($userId, $totalCost)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Failed to deduct credits. Please try again.'
+            ]);
+            exit;
+        }
+        
+        $results = [];
+        $successCount = 0;
+        $errorCount = 0;
+        $refundedCredits = 0;
+        
+        foreach ($cards as $index => $ccString) {
+            $ccString = trim($ccString);
+            if (empty($ccString)) continue;
+            
+            // Get proxy if enabled
+            $proxy = null;
+            if ($useProxy) {
+                $proxyData = $db->getRandomWorkingProxy();
+                if ($proxyData) {
+                    $proxy = $proxyData['proxy'];
+                }
+            }
+            
+            // Get next site from rotation
+            $site = getNextSite();
+            
+            if (!$site) {
+                $errorCount++;
+                $results[] = [
+                    'card' => substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4),
+                    'success' => false,
+                    'status' => 'ERROR',
+                    'message' => 'No sites available'
+                ];
+                $refundedCredits += STRIPE_AUTH_COST;
+                continue;
+            }
+            
+            try {
+                // Perform the check
+                $result = auth($site, $ccString, $proxy);
+                
+                // Log the check
+                $db->logToolUsage($userId, 'stripe_auth_checker', [
+                    'usage_count' => 1,
+                    'credits_used' => STRIPE_AUTH_COST,
+                    'site' => $site,
+                    'card' => substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4),
+                    'status' => $result['status'] ?? 'unknown'
+                ], STRIPE_AUTH_COST);
+                
+                if ($result['success']) {
+                    $successCount++;
+                } else {
+                    $errorCount++;
+                }
+                
+                $result['card'] = substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4);
+                $result['site_used'] = $site;
+                if ($proxy) {
+                    $result['proxy_used'] = substr($proxy, 0, 20) . '...';
+                }
+                $results[] = $result;
+                
+            } catch (Exception $e) {
+                $errorCount++;
+                $refundedCredits += STRIPE_AUTH_COST;
+                $results[] = [
+                    'card' => substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4),
+                    'success' => false,
+                    'status' => 'ERROR',
+                    'message' => 'Exception: ' . $e->getMessage()
+                ];
+            }
+        }
+        
+        // Refund credits for failed checks
+        if ($refundedCredits > 0) {
+            $db->addCredits($userId, $refundedCredits);
+        }
+        
+        // Update user stats
+        $stats = $db->getUserStats($userId);
+        if ($stats) {
+            $db->updateUserStats($userId, [
+                'total_hits' => ($stats['total_hits'] ?? 0) + $totalCards,
+                'total_charge_cards' => ($stats['total_charge_cards'] ?? 0) + $successCount,
+                'total_live_cards' => ($stats['total_live_cards'] ?? 0) + $successCount
+            ]);
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'message' => "Checked $totalCards cards. Success: $successCount, Failed: $errorCount",
+            'total' => $totalCards,
+            'success_count' => $successCount,
+            'error_count' => $errorCount,
+            'credits_used' => $totalCost - $refundedCredits,
+            'credits_remaining' => $user['credits'] - $totalCost + $refundedCredits,
+            'results' => $results
+        ]);
         exit;
     }
 }
@@ -494,7 +649,7 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
         <?php endif; ?>
 
         <div class="checker-card">
-            <h2 style="margin-bottom: 1.5rem;"><i class="fas fa-search"></i> Check Card</h2>
+            <h2 style="margin-bottom: 1.5rem;"><i class="fas fa-search"></i> Single Check</h2>
             
             <form id="checkForm">
                 <div class="form-group">
@@ -512,8 +667,20 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
                 </div>
 
                 <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input 
+                            type="checkbox" 
+                            id="useProxyCheckbox" 
+                            name="use_proxy" 
+                            value="1"
+                        >
+                        <span>Use random proxy from Proxy Manager</span>
+                    </label>
+                </div>
+
+                <div class="form-group">
                     <label for="proxyInput">
-                        <i class="fas fa-server"></i> Proxy (Optional)
+                        <i class="fas fa-server"></i> Custom Proxy (Optional - overrides auto proxy)
                         <span style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">(Format: ip:port:user:pass)</span>
                     </label>
                     <input 
@@ -530,6 +697,42 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             </form>
         </div>
 
+        <div class="checker-card">
+            <h2 style="margin-bottom: 1.5rem;"><i class="fas fa-layer-group"></i> Mass Check</h2>
+            
+            <form id="massCheckForm">
+                <div class="form-group">
+                    <label for="cardsInput">
+                        <i class="fas fa-credit-card"></i> Cards (one per line)
+                        <span style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">(Format: XXXXXXXXXXXX|MM|YYYY|CVV)</span>
+                    </label>
+                    <textarea 
+                        id="cardsInput" 
+                        name="cards" 
+                        placeholder="4532015112830366|12|2025|123&#10;4532015112830367|12|2025|124&#10;..."
+                        required
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input 
+                            type="checkbox" 
+                            id="massUseProxyCheckbox" 
+                            name="use_proxy" 
+                            value="1"
+                            checked
+                        >
+                        <span>Use random proxy from Proxy Manager for each check</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn-primary" id="massCheckBtn">
+                    <i class="fas fa-play"></i> Check All Cards (<span id="massCheckCost">0</span> Credits)
+                </button>
+            </form>
+        </div>
+
         <div class="results-container" id="resultsContainer">
             <h2 style="margin-bottom: 1rem;"><i class="fas fa-chart-bar"></i> Results</h2>
             <div id="resultsContent"></div>
@@ -539,15 +742,31 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
     <script nonce="<?php echo $nonce; ?>">
         const checkForm = document.getElementById('checkForm');
         const checkBtn = document.getElementById('checkBtn');
+        const massCheckForm = document.getElementById('massCheckForm');
+        const massCheckBtn = document.getElementById('massCheckBtn');
         const resultsContainer = document.getElementById('resultsContainer');
         const resultsContent = document.getElementById('resultsContent');
         const userCreditsEl = document.getElementById('userCredits');
+        const massCheckCostEl = document.getElementById('massCheckCost');
+
+        // Update mass check cost
+        const cardsInput = document.getElementById('cardsInput');
+        cardsInput.addEventListener('input', () => {
+            const cards = cardsInput.value.trim().split('\n').filter(c => c.trim().length > 0);
+            const cost = cards.length * <?php echo STRIPE_AUTH_COST; ?>;
+            massCheckCostEl.textContent = cost;
+        });
 
         checkForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const formData = new FormData(checkForm);
             formData.append('action', 'check_card');
+            
+            // Add use_proxy if checkbox is checked
+            if (document.getElementById('useProxyCheckbox').checked) {
+                formData.append('use_proxy', '1');
+            }
             
             checkBtn.disabled = true;
             checkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
@@ -576,6 +795,61 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             }
         });
 
+        massCheckForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const cards = cardsInput.value.trim().split('\n').filter(c => c.trim().length > 0);
+            if (cards.length === 0) {
+                showError('Please enter at least one card');
+                return;
+            }
+            
+            const totalCost = cards.length * <?php echo STRIPE_AUTH_COST; ?>;
+            if (!confirm(`Check ${cards.length} cards for ${totalCost} credits?`)) {
+                return;
+            }
+            
+            const formData = new FormData(massCheckForm);
+            formData.append('action', 'check_mass_cards');
+            
+            // Add use_proxy if checkbox is checked
+            if (document.getElementById('massUseProxyCheckbox').checked) {
+                formData.append('use_proxy', '1');
+            }
+            
+            massCheckBtn.disabled = true;
+            massCheckBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+            
+            try {
+                const response = await fetch('stripe_auth_tool.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(`Checked ${data.total} cards. Success: ${data.success_count}, Failed: ${data.error_count}`);
+                    
+                    // Display all results
+                    data.results.forEach(result => {
+                        displayResult(result);
+                    });
+                    
+                    if (data.credits_remaining !== undefined) {
+                        userCreditsEl.textContent = data.credits_remaining.toLocaleString();
+                    }
+                } else {
+                    showError(data.message || 'Mass check failed');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                massCheckBtn.disabled = false;
+                massCheckBtn.innerHTML = '<i class="fas fa-play"></i> Check All Cards (<span id="massCheckCost">0</span> Credits)';
+            }
+        });
+
         function displayResult(result) {
             const isSuccess = result.success === true;
             const resultDiv = document.createElement('div');
@@ -591,8 +865,14 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             if (result.pm_id) {
                 detailsHTML += `<div><strong>Payment Method ID:</strong> ${result.pm_id}</div>`;
             }
+            if (result.proxy_used) {
+                detailsHTML += `<div><strong>Proxy Used:</strong> ${result.proxy_used}</div>`;
+            }
             if (result.message) {
                 detailsHTML += `<div><strong>Message:</strong> ${result.message}</div>`;
+            }
+            if (result.card) {
+                detailsHTML += `<div><strong>Card:</strong> ${result.card}</div>`;
             }
             
             resultDiv.innerHTML = `
@@ -633,6 +913,28 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             `;
             
             resultsContent.insertBefore(errorDiv, resultsContent.firstChild);
+            resultsContainer.style.display = 'block';
+        }
+
+        function showMessage(message, type = 'success') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'result-item ' + type;
+            messageDiv.innerHTML = `
+                <div class="result-header">
+                    <div class="result-status">
+                        <i class="fas fa-info-circle"></i>
+                        ${type.toUpperCase()}
+                    </div>
+                    <div style="color: rgba(255,255,255,0.6);">
+                        ${new Date().toLocaleTimeString()}
+                    </div>
+                </div>
+                <div class="result-details">
+                    <div>${message}</div>
+                </div>
+            `;
+            
+            resultsContent.insertBefore(messageDiv, resultsContent.firstChild);
             resultsContainer.style.display = 'block';
         }
 

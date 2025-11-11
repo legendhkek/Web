@@ -23,6 +23,7 @@ class DatabaseConfig {
     const CC_LOGS_COLLECTION = 'cc_logs';
     const ADMIN_ROLES_COLLECTION = 'admin_roles';
     const CREDIT_CODES_COLLECTION = 'credit_codes';
+    const PROXIES_COLLECTION = 'proxies';
 }
 
 class TelegramConfig {
