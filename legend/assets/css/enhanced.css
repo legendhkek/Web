@@ -1,11 +1,33 @@
 /**
  * LEGEND CHECKER - Enhanced CSS Styles
- * Animations, transitions, and interactive elements
+ * Modern animations, transitions, and interactive elements
  */
+
+/* CSS Variables for theming */
+:root {
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+    --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.2);
+    --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.25);
+}
 
 /* Enhanced animations and transitions */
 * {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth scroll behavior */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Focus visible for accessibility */
+*:focus-visible {
+    outline: 2px solid var(--accent-blue, #1da1f2);
+    outline-offset: 2px;
 }
 
 /* Progress bar styles */
@@ -487,7 +509,9 @@
     .notification-container,
     .progress-container,
     .tooltip,
-    .modal {
+    .modal,
+    .bottom-nav,
+    .header-actions {
         display: none !important;
     }
 }
@@ -495,20 +519,23 @@
 /* High contrast mode support */
 @media (prefers-contrast: high) {
     .card, .tool-card, .wallet-card, .stat-card {
-        border: 2px solid #ffffff;
+        border: 2px solid currentColor;
     }
     
     .btn, .tool-btn {
-        border: 2px solid #00d4ff;
+        border: 2px solid currentColor;
     }
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-    * {
+    *,
+    *::before,
+    *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
     
     .notification,
@@ -516,4 +543,33 @@
     .tooltip {
         transition: none;
     }
+}
+
+/* Dark mode preference */
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+    }
+}
+
+/* Light mode preference */
+@media (prefers-color-scheme: light) {
+    :root {
+        color-scheme: light;
+    }
+}
+
+/* Performance optimizations */
+.will-change-transform {
+    will-change: transform;
+}
+
+.will-change-opacity {
+    will-change: opacity;
+}
+
+.gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
 }

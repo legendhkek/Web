@@ -125,6 +125,26 @@ $claimMessage = '';
             gap: 16px;
         }
 
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 18px;
+        }
+
+        .theme-toggle:hover {
+            background: var(--bg-card-hover);
+            transform: rotate(15deg);
+        }
+
         .timer-chip {
             background: var(--bg-card);
             padding: 8px 16px;
@@ -132,6 +152,9 @@ $claimMessage = '';
             font-size: 14px;
             color: var(--text-secondary);
             border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .menu-toggle {
@@ -613,6 +636,163 @@ $claimMessage = '';
             text-align: center;
         }
 
+        /* Stats Chart Container */
+        .stats-chart-container {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 28px;
+            border: 1px solid var(--border-color);
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 200px;
+            margin-top: 20px;
+        }
+
+        .chart-bar {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 100%;
+            gap: 8px;
+        }
+
+        .chart-bar-item {
+            flex: 1;
+            background: linear-gradient(180deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 8px 8px 0 0;
+            position: relative;
+            transition: all 0.3s ease;
+            min-height: 20px;
+            cursor: pointer;
+        }
+
+        .chart-bar-item:hover {
+            opacity: 0.8;
+            transform: scaleY(1.05);
+        }
+
+        .chart-bar-item::after {
+            content: attr(data-value);
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .chart-bar-item:hover::after {
+            opacity: 1;
+        }
+
+        /* Live Stats Indicator */
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--accent-green);
+            margin-left: 12px;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        /* Skeleton Loader */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            border-radius: 8px;
+        }
+
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Keyboard Shortcuts Modal */
+        .shortcuts-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .shortcuts-modal.active {
+            display: flex;
+        }
+
+        .shortcuts-content {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 32px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .shortcut-key {
+            background: var(--bg-primary);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Light Mode Styles */
+        body.light-mode {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f0f0f0;
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --text-muted: #8a8a8a;
+            --border-color: #e0e0e0;
+        }
+
+        body.light-mode .card {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .profile-header {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .container {
@@ -641,6 +821,10 @@ $claimMessage = '';
             body {
                 padding-bottom: 80px;
             }
+
+            .chart-wrapper {
+                height: 150px;
+            }
         }
     </style>
 </head>
@@ -657,7 +841,10 @@ $claimMessage = '';
                     <i class="fas fa-clock"></i>
                     <span id="currentTime"></span>
                 </div>
-                <button class="menu-toggle" onclick="toggleDrawer()">
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
+                <button class="menu-toggle" onclick="toggleDrawer()" aria-label="Toggle menu">
                     <i class="fas fa-bars"></i>
                 </button>
             </div>
@@ -910,6 +1097,25 @@ $claimMessage = '';
             </div>
         </div>
 
+        <!-- Stats Chart -->
+        <div class="stats-chart-container">
+            <h2 class="section-title" style="margin-bottom: 0;">
+                <i class="fas fa-chart-line"></i> Statistics Overview
+                <span class="live-indicator">
+                    <span class="live-dot"></span>
+                    Live
+                </span>
+            </h2>
+            <div class="chart-wrapper">
+                <div class="chart-bar" id="statsChart">
+                    <div class="chart-bar-item skeleton" style="height: 60%;"></div>
+                    <div class="chart-bar-item skeleton" style="height: 80%;"></div>
+                    <div class="chart-bar-item skeleton" style="height: 45%;"></div>
+                    <div class="chart-bar-item skeleton" style="height: 70%;"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Global Statistics -->
         <h2 class="section-title">Global Statistics</h2>
         <div class="cards-grid">
@@ -1053,8 +1259,63 @@ $claimMessage = '';
         </div>
     </div>
 
+    <!-- Keyboard Shortcuts Modal -->
+    <div class="shortcuts-modal" id="shortcutsModal">
+        <div class="shortcuts-content">
+            <h2 style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fas fa-keyboard"></i> Keyboard Shortcuts</span>
+                <button onclick="closeShortcutsModal()" style="background: none; border: none; color: var(--text-primary); font-size: 24px; cursor: pointer;">&times;</button>
+            </h2>
+            <div class="shortcut-item">
+                <span><i class="fas fa-home"></i> Go to Dashboard</span>
+                <span class="shortcut-key">G + D</span>
+            </div>
+            <div class="shortcut-item">
+                <span><i class="fas fa-tools"></i> Go to Tools</span>
+                <span class="shortcut-key">G + T</span>
+            </div>
+            <div class="shortcut-item">
+                <span><i class="fas fa-users"></i> Go to Users</span>
+                <span class="shortcut-key">G + U</span>
+            </div>
+            <div class="shortcut-item">
+                <span><i class="fas fa-moon"></i> Toggle Theme</span>
+                <span class="shortcut-key">T</span>
+            </div>
+            <div class="shortcut-item">
+                <span><i class="fas fa-bars"></i> Toggle Menu</span>
+                <span class="shortcut-key">M</span>
+            </div>
+            <div class="shortcut-item">
+                <span><i class="fas fa-question-circle"></i> Show Shortcuts</span>
+                <span class="shortcut-key">?</span>
+            </div>
+        </div>
+    </div>
+
     <script src="assets/js/main.js" nonce="<?php echo $nonce; ?>"></script>
     <script nonce="<?php echo $nonce; ?>">
+        // Theme Management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.body.classList.toggle('light-mode', savedTheme === 'light');
+            updateThemeIcon(savedTheme);
+        }
+
+        function toggleTheme() {
+            const isLight = document.body.classList.toggle('light-mode');
+            const theme = isLight ? 'light' : 'dark';
+            localStorage.setItem('theme', theme);
+            updateThemeIcon(theme);
+        }
+
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.className = theme === 'light' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
         // Update current time
         function updateTime() {
             const now = new Date();
@@ -1063,7 +1324,111 @@ $claimMessage = '';
                 hour: '2-digit', 
                 minute: '2-digit' 
             });
-            document.getElementById('currentTime').textContent = timeString;
+            const timeEl = document.getElementById('currentTime');
+            if (timeEl) {
+                timeEl.textContent = timeString;
+            }
+        }
+
+        // Stats Chart
+        function updateStatsChart() {
+            const chart = document.getElementById('statsChart');
+            if (!chart) return;
+
+            const stats = {
+                hits: <?php echo $userStats['total_hits'] ?? 0; ?>,
+                charges: <?php echo $userStats['total_charge_cards'] ?? 0; ?>,
+                live: <?php echo $userStats['total_live_cards'] ?? 0; ?>,
+                credits: <?php echo $user['credits'] ?? 0; ?>
+            };
+
+            const maxValue = Math.max(...Object.values(stats), 1);
+            const labels = ['Hits', 'Charges', 'Live', 'Credits'];
+            const values = [stats.hits, stats.charges, stats.live, stats.credits];
+
+            chart.innerHTML = values.map((value, index) => {
+                const height = (value / maxValue) * 100;
+                return `<div class="chart-bar-item" style="height: ${height}%;" data-value="${value.toLocaleString()}"></div>`;
+            }).join('');
+
+            // Add labels
+            const labelsContainer = document.createElement('div');
+            labelsContainer.style.display = 'flex';
+            labelsContainer.style.justifyContent = 'space-around';
+            labelsContainer.style.marginTop = '10px';
+            labelsContainer.style.fontSize = '12px';
+            labelsContainer.style.color = 'var(--text-secondary)';
+            labels.forEach(label => {
+                const labelEl = document.createElement('div');
+                labelEl.textContent = label;
+                labelsContainer.appendChild(labelEl);
+            });
+            chart.parentElement.appendChild(labelsContainer);
+        }
+
+        // Real-time stats update
+        function updateStats() {
+            fetch('api/stats.php', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update stats cards dynamically
+                    updateStatsChart();
+                }
+            })
+            .catch(err => console.warn('Stats update failed:', err));
+        }
+
+        // Keyboard Shortcuts
+        function initKeyboardShortcuts() {
+            let keysPressed = {};
+            
+            document.addEventListener('keydown', (e) => {
+                keysPressed[e.key.toLowerCase()] = true;
+                
+                // Single key shortcuts
+                if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    openShortcutsModal();
+                }
+                if (e.key === 't' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+                    e.preventDefault();
+                    toggleTheme();
+                }
+                if (e.key === 'm' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+                    e.preventDefault();
+                    toggleDrawer();
+                }
+                
+                // Multi-key shortcuts (G + X)
+                if (keysPressed['g']) {
+                    if (keysPressed['d']) {
+                        e.preventDefault();
+                        window.location.href = 'dashboard.php';
+                    } else if (keysPressed['t']) {
+                        e.preventDefault();
+                        window.location.href = 'tools.php';
+                    } else if (keysPressed['u']) {
+                        e.preventDefault();
+                        window.location.href = 'users.php';
+                    }
+                }
+            });
+            
+            document.addEventListener('keyup', (e) => {
+                delete keysPressed[e.key.toLowerCase()];
+            });
+        }
+
+        function openShortcutsModal() {
+            document.getElementById('shortcutsModal').classList.add('active');
+        }
+
+        function closeShortcutsModal() {
+            document.getElementById('shortcutsModal').classList.remove('active');
         }
 
 
@@ -1078,8 +1443,17 @@ $claimMessage = '';
         }
 
         // Initialize
+        initTheme();
         updateTime();
         setInterval(updateTime, 1000);
+        updateStatsChart();
+        initKeyboardShortcuts();
+
+        // Theme toggle event
+        document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+
+        // Update stats every 30 seconds
+        setInterval(updateStats, 30000);
 
         // Update presence every 2 minutes
         setInterval(() => {
