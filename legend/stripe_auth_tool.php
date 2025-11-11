@@ -20,6 +20,11 @@ $is_owner = in_array((int)$userId, AppConfig::OWNER_IDS);
 // Cost per check
 const STRIPE_AUTH_COST = 1;
 
+// Load proxies for dropdown
+$proxyFile = __DIR__ . '/data/proxies.json';
+$proxyData = file_exists($proxyFile) ? json_decode(file_get_contents($proxyFile), true) : ['proxies' => []];
+$liveProxies = array_filter($proxyData['proxies'] ?? [], fn($p) => $p['status'] === 'live');
+
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
@@ -35,7 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         
         $ccString = $_POST['card'] ?? '';
-        $proxy = $_POST['proxy'] ?? null;
+        $useProxy = $_POST['use_proxy'] ?? 'no';
+        $proxyId = $_POST['proxy_id'] ?? '';
         
         if (empty($ccString)) {
             echo json_encode([
@@ -43,6 +49,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'message' => 'Card data is required'
             ]);
             exit;
+        }
+        
+        // Get proxy if requested
+        $proxy = null;
+        if ($useProxy === 'random' && !empty($liveProxies)) {
+            $randomProxy = $liveProxies[array_rand($liveProxies)];
+            $proxy = $randomProxy['proxy'];
+        } elseif ($useProxy === 'specific' && !empty($proxyId)) {
+            foreach ($liveProxies as $p) {
+                if ($p['id'] === $proxyId) {
+                    $proxy = $p['proxy'];
+                    break;
+                }
+            }
         }
         
         // Get next site from rotation
@@ -75,7 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'credits_used' => STRIPE_AUTH_COST,
                 'site' => $site,
                 'card' => substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4),
-                'status' => $result['status'] ?? 'unknown'
+                'status' => $result['status'] ?? 'unknown',
+                'proxy_used' => $proxy ? 'yes' : 'no'
             ], STRIPE_AUTH_COST);
             
             // Update user stats
@@ -91,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Add site info to result
             $result['site_used'] = $site;
             $result['credits_remaining'] = $user['credits'] - STRIPE_AUTH_COST;
+            $result['proxy_used'] = $proxy ?: 'None';
             
             echo json_encode([
                 'success' => true,
@@ -104,6 +126,145 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode([
                 'success' => false,
                 'message' => 'Check failed: ' . $e->getMessage()
+            ]);
+        }
+        exit;
+    } elseif ($_POST['action'] === 'check_mass') {
+        $cards = $_POST['cards'] ?? '';
+        $useProxy = $_POST['use_proxy'] ?? 'no';
+        
+        if (empty($cards)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No cards provided'
+            ]);
+            exit;
+        }
+        
+        $cardList = array_filter(array_map('trim', explode("\n", $cards)));
+        $totalCards = count($cardList);
+        $totalCreditsNeeded = $totalCards * STRIPE_AUTH_COST;
+        
+        // Check if user has enough credits
+        if ($user['credits'] < $totalCreditsNeeded) {
+            echo json_encode([
+                'success' => false,
+                'message' => "Insufficient credits. You need $totalCreditsNeeded credits to check $totalCards cards. You have {$user['credits']} credits."
+            ]);
+            exit;
+        }
+        
+        // Deduct all credits upfront
+        if (!$db->deductCredits($userId, $totalCreditsNeeded)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Failed to deduct credits. Please try again.'
+            ]);
+            exit;
+        }
+        
+        $results = [];
+        $successCount = 0;
+        $failCount = 0;
+        
+        try {
+            foreach ($cardList as $index => $ccString) {
+                // Get proxy if requested
+                $proxy = null;
+                if ($useProxy === 'random' && !empty($liveProxies)) {
+                    $randomProxy = $liveProxies[array_rand($liveProxies)];
+                    $proxy = $randomProxy['proxy'];
+                }
+                
+                // Get next site
+                $site = getNextSite();
+                
+                if (!$site) {
+                    $results[] = [
+                        'card' => substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4),
+                        'status' => 'ERROR',
+                        'message' => 'No sites available'
+                    ];
+                    $failCount++;
+                    continue;
+                }
+                
+                // Perform check
+                try {
+                    $result = auth($site, $ccString, $proxy);
+                    
+                    if ($result['success']) {
+                        $successCount++;
+                    } else {
+                        $failCount++;
+                    }
+                    
+                    $results[] = [
+                        'card' => substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4),
+                        'status' => $result['status'] ?? 'UNKNOWN',
+                        'message' => $result['message'] ?? '',
+                        'site_used' => $site,
+                        'proxy_used' => $proxy ? 'yes' : 'no'
+                    ];
+                    
+                    // Log the check
+                    $db->logToolUsage($userId, 'stripe_auth_checker', [
+                        'usage_count' => 1,
+                        'credits_used' => STRIPE_AUTH_COST,
+                        'site' => $site,
+                        'card' => substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4),
+                        'status' => $result['status'] ?? 'unknown',
+                        'batch' => true
+                    ], STRIPE_AUTH_COST);
+                    
+                } catch (Exception $e) {
+                    $results[] = [
+                        'card' => substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4),
+                        'status' => 'ERROR',
+                        'message' => $e->getMessage()
+                    ];
+                    $failCount++;
+                }
+                
+                // Small delay between checks
+                usleep(500000); // 0.5 seconds
+            }
+            
+            // Update user stats
+            $stats = $db->getUserStats($userId);
+            if ($stats) {
+                $db->updateUserStats($userId, [
+                    'total_hits' => ($stats['total_hits'] ?? 0) + $totalCards,
+                    'total_charge_cards' => ($stats['total_charge_cards'] ?? 0) + $successCount,
+                    'total_live_cards' => ($stats['total_live_cards'] ?? 0) + $successCount
+                ]);
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => "Checked $totalCards cards. Success: $successCount, Failed: $failCount",
+                'results' => $results,
+                'stats' => [
+                    'total' => $totalCards,
+                    'success' => $successCount,
+                    'failed' => $failCount
+                ],
+                'credits_remaining' => $user['credits'] - $totalCreditsNeeded
+            ]);
+            
+        } catch (Exception $e) {
+            // Refund remaining credits on catastrophic error
+            $checkedCount = count($results);
+            $refundAmount = ($totalCards - $checkedCount) * STRIPE_AUTH_COST;
+            if ($refundAmount > 0) {
+                $db->addCredits($userId, $refundAmount);
+            }
+            
+            echo json_encode([
+                'success' => false,
+                'message' => 'Mass check failed: ' . $e->getMessage(),
+                'results' => $results,
+                'refunded' => $refundAmount
             ]);
         }
         exit;
@@ -290,6 +451,38 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             margin-bottom: 2rem;
         }
 
+        .tab-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            font-size: 1rem;
+        }
+
+        .tab-btn.active {
+            color: #00d4ff;
+            border-bottom-color: #00d4ff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         .form-group {
             margin-bottom: 1.5rem;
         }
@@ -302,7 +495,8 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
         }
 
         .form-group input,
-        .form-group textarea {
+        .form-group textarea,
+        .form-group select {
             width: 100%;
             padding: 0.75rem;
             background: rgba(255, 255, 255, 0.1);
@@ -314,16 +508,46 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
         }
 
         .form-group input:focus,
-        .form-group textarea:focus {
+        .form-group textarea:focus,
+        .form-group select:focus {
             outline: none;
             border-color: #00d4ff;
             background: rgba(255, 255, 255, 0.15);
         }
 
         .form-group textarea {
-            min-height: 100px;
+            min-height: 150px;
             resize: vertical;
             font-family: 'Courier New', monospace;
+        }
+
+        .form-group select {
+            cursor: pointer;
+        }
+
+        .proxy-section {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .proxy-options {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .proxy-option {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .proxy-option input[type="radio"] {
+            width: auto;
+            margin-right: 0.5rem;
         }
 
         .btn-primary {
@@ -416,10 +640,40 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             cursor: pointer;
             transition: all 0.3s ease;
             margin-right: 0.5rem;
+            text-decoration: none;
+            display: inline-block;
         }
 
         .btn-secondary:hover {
             background: rgba(255, 255, 255, 0.2);
+        }
+
+        .progress-section {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
         }
 
         @media (max-width: 768px) {
@@ -433,6 +687,10 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
 
             .info-cards {
                 grid-template-columns: 1fr;
+            }
+
+            .proxy-options {
+                flex-direction: column;
             }
         }
     </style>
@@ -474,60 +732,139 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
                 <p><?php echo $currentSiteIndex; ?>/<?php echo $totalSites; ?></p>
             </div>
             <div class="info-card">
-                <i class="fas fa-clock"></i>
-                <h3>Next Rotation</h3>
-                <p><?php echo $requestsUntilRotation; ?> checks</p>
+                <i class="fas fa-network-wired"></i>
+                <h3>Available Proxies</h3>
+                <p><?php echo count($liveProxies); ?> Live</p>
             </div>
         </div>
 
         <?php if ($is_owner): ?>
         <div class="owner-section">
             <h3><i class="fas fa-crown"></i> Owner Controls</h3>
-            <p style="margin-bottom: 1rem;">Manage sites and configuration</p>
+            <p style="margin-bottom: 1rem;">Manage sites, proxies and configuration</p>
             <a href="admin/stripe_auth_sites.php" class="btn-secondary">
                 <i class="fas fa-cog"></i> Manage Sites
             </a>
-            <button onclick="resetRotation()" class="btn-secondary">
-                <i class="fas fa-redo"></i> Reset Rotation
-            </button>
+            <a href="proxy_manager.php" class="btn-secondary">
+                <i class="fas fa-network-wired"></i> Manage Proxies
+            </a>
         </div>
         <?php endif; ?>
 
         <div class="checker-card">
-            <h2 style="margin-bottom: 1.5rem;"><i class="fas fa-search"></i> Check Card</h2>
-            
-            <form id="checkForm">
-                <div class="form-group">
-                    <label for="cardInput">
-                        <i class="fas fa-credit-card"></i> Card Information
-                        <span style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">(Format: XXXXXXXXXXXX|MM|YYYY|CVV)</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        id="cardInput" 
-                        name="card" 
-                        placeholder="4532015112830366|12|2025|123"
-                        required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="proxyInput">
-                        <i class="fas fa-server"></i> Proxy (Optional)
-                        <span style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">(Format: ip:port:user:pass)</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        id="proxyInput" 
-                        name="proxy" 
-                        placeholder="proxy.example.com:8080:username:password"
-                    >
-                </div>
-
-                <button type="submit" class="btn-primary" id="checkBtn">
-                    <i class="fas fa-play"></i> Check Card (<?php echo STRIPE_AUTH_COST; ?> Credit)
+            <div class="tab-buttons">
+                <button class="tab-btn active" data-tab="single">
+                    <i class="fas fa-credit-card"></i> Single Check
                 </button>
-            </form>
+                <button class="tab-btn" data-tab="mass">
+                    <i class="fas fa-list"></i> Mass Check
+                </button>
+            </div>
+            
+            <div class="tab-content active" id="single">
+                <h2 style="margin-bottom: 1.5rem;"><i class="fas fa-search"></i> Check Single Card</h2>
+                
+                <form id="checkForm">
+                    <div class="form-group">
+                        <label for="cardInput">
+                            <i class="fas fa-credit-card"></i> Card Information
+                            <span style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">(Format: XXXXXXXXXXXX|MM|YYYY|CVV)</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="cardInput" 
+                            name="card" 
+                            placeholder="4532015112830366|12|2025|123"
+                            required
+                        >
+                    </div>
+
+                    <div class="proxy-section">
+                        <h4 style="margin-bottom: 1rem;"><i class="fas fa-network-wired"></i> Proxy Settings</h4>
+                        <div class="proxy-options">
+                            <label class="proxy-option">
+                                <input type="radio" name="use_proxy" value="no" checked>
+                                <span>No Proxy</span>
+                            </label>
+                            <label class="proxy-option">
+                                <input type="radio" name="use_proxy" value="random">
+                                <span>Random Proxy</span>
+                            </label>
+                            <label class="proxy-option">
+                                <input type="radio" name="use_proxy" value="specific">
+                                <span>Specific Proxy</span>
+                            </label>
+                        </div>
+                        <div class="form-group" id="specificProxyGroup" style="display:none;">
+                            <label for="proxySelect">Select Proxy:</label>
+                            <select id="proxySelect" name="proxy_id">
+                                <option value="">-- Select a proxy --</option>
+                                <?php foreach ($liveProxies as $proxy): ?>
+                                <option value="<?php echo $proxy['id']; ?>">
+                                    <?php echo $proxy['country']; ?> - <?php echo $proxy['ip']; ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="checkBtn">
+                        <i class="fas fa-play"></i> Check Card (<?php echo STRIPE_AUTH_COST; ?> Credit)
+                    </button>
+                </form>
+            </div>
+
+            <div class="tab-content" id="mass">
+                <h2 style="margin-bottom: 1.5rem;"><i class="fas fa-list"></i> Mass Check Cards</h2>
+                
+                <form id="massCheckForm">
+                    <div class="form-group">
+                        <label for="cardsInput">
+                            <i class="fas fa-list"></i> Card List
+                            <span style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">(One card per line, Format: XXXXXXXXXXXX|MM|YYYY|CVV)</span>
+                        </label>
+                        <textarea 
+                            id="cardsInput" 
+                            name="cards" 
+                            placeholder="4532015112830366|12|2025|123
+4916338506082832|03|2026|456
+4024007114754230|08|2027|789"
+                            required
+                        ></textarea>
+                    </div>
+
+                    <div class="proxy-section">
+                        <h4 style="margin-bottom: 1rem;"><i class="fas fa-network-wired"></i> Proxy Settings</h4>
+                        <div class="proxy-options">
+                            <label class="proxy-option">
+                                <input type="radio" name="use_proxy_mass" value="no" checked>
+                                <span>No Proxy</span>
+                            </label>
+                            <label class="proxy-option">
+                                <input type="radio" name="use_proxy_mass" value="random">
+                                <span>Random Proxy per Check</span>
+                            </label>
+                        </div>
+                        <p style="color: rgba(255,255,255,0.6); font-size: 0.85rem; margin-top: 0.5rem;">
+                            <i class="fas fa-info-circle"></i> Random proxy will rotate for each card check
+                        </p>
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="massCheckBtn">
+                        <i class="fas fa-play"></i> Check All Cards
+                    </button>
+                </form>
+
+                <div class="progress-section" id="progressSection">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Progress: <span id="progressText">0/0</span></span>
+                        <span>Success: <span id="successCount">0</span> | Failed: <span id="failCount">0</span></span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width: 0%;">0%</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="results-container" id="resultsContainer">
@@ -537,12 +874,43 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
     </div>
 
     <script nonce="<?php echo $nonce; ?>">
+        // Tab switching
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                btn.classList.add('active');
+                document.getElementById(tab).classList.add('active');
+            });
+        });
+
+        // Proxy option handling for single check
+        const proxyRadios = document.querySelectorAll('input[name="use_proxy"]');
+        const specificProxyGroup = document.getElementById('specificProxyGroup');
+
+        proxyRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.value === 'specific') {
+                    specificProxyGroup.style.display = 'block';
+                } else {
+                    specificProxyGroup.style.display = 'none';
+                }
+            });
+        });
+
         const checkForm = document.getElementById('checkForm');
         const checkBtn = document.getElementById('checkBtn');
         const resultsContainer = document.getElementById('resultsContainer');
         const resultsContent = document.getElementById('resultsContent');
         const userCreditsEl = document.getElementById('userCredits');
 
+        // Single check
         checkForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -576,6 +944,68 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             }
         });
 
+        // Mass check
+        const massCheckForm = document.getElementById('massCheckForm');
+        const massCheckBtn = document.getElementById('massCheckBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressText = document.getElementById('progressText');
+        const progressFill = document.getElementById('progressFill');
+        const successCount = document.getElementById('successCount');
+        const failCount = document.getElementById('failCount');
+
+        massCheckForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(massCheckForm);
+            formData.append('action', 'check_mass');
+            formData.set('use_proxy', formData.get('use_proxy_mass'));
+            
+            massCheckBtn.disabled = true;
+            massCheckBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+            progressSection.style.display = 'block';
+            
+            try {
+                const response = await fetch('stripe_auth_tool.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update progress
+                    const total = data.stats.total;
+                    const success = data.stats.success;
+                    const failed = data.stats.failed;
+                    
+                    progressText.textContent = `${total}/${total}`;
+                    progressFill.style.width = '100%';
+                    progressFill.textContent = '100%';
+                    successCount.textContent = success;
+                    failCount.textContent = failed;
+                    
+                    // Display results
+                    data.results.forEach(result => {
+                        displayMassResult(result);
+                    });
+                    
+                    // Update credits
+                    if (data.credits_remaining !== undefined) {
+                        userCreditsEl.textContent = data.credits_remaining.toLocaleString();
+                    }
+                    
+                    showSuccess(data.message);
+                } else {
+                    showError(data.message || 'Mass check failed');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                massCheckBtn.disabled = false;
+                massCheckBtn.innerHTML = '<i class="fas fa-play"></i> Check All Cards';
+            }
+        });
+
         function displayResult(result) {
             const isSuccess = result.success === true;
             const resultDiv = document.createElement('div');
@@ -591,6 +1021,9 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             if (result.pm_id) {
                 detailsHTML += `<div><strong>Payment Method ID:</strong> ${result.pm_id}</div>`;
             }
+            if (result.proxy_used) {
+                detailsHTML += `<div><strong>Proxy:</strong> ${result.proxy_used}</div>`;
+            }
             if (result.message) {
                 detailsHTML += `<div><strong>Message:</strong> ${result.message}</div>`;
             }
@@ -602,6 +1035,42 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
                         ${result.status || 'UNKNOWN'}
                     </div>
                     <div style="color: rgba(255,255,255,0.6);">
+                        ${new Date().toLocaleTimeString()}
+                    </div>
+                </div>
+                <div class="result-details">
+                    ${detailsHTML}
+                </div>
+            `;
+            
+            resultsContent.insertBefore(resultDiv, resultsContent.firstChild);
+            resultsContainer.style.display = 'block';
+        }
+
+        function displayMassResult(result) {
+            const isSuccess = result.status === 'SUCCESS';
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result-item ' + (isSuccess ? 'success' : 'error');
+            
+            let detailsHTML = '';
+            detailsHTML += `<div><strong>Card:</strong> ${result.card}</div>`;
+            if (result.site_used) {
+                detailsHTML += `<div><strong>Site:</strong> ${result.site_used}</div>`;
+            }
+            if (result.proxy_used) {
+                detailsHTML += `<div><strong>Proxy:</strong> ${result.proxy_used}</div>`;
+            }
+            if (result.message) {
+                detailsHTML += `<div><strong>Message:</strong> ${result.message}</div>`;
+            }
+            
+            resultDiv.innerHTML = `
+                <div class="result-header">
+                    <div class="result-status">
+                        <i class="fas fa-${isSuccess ? 'check-circle' : 'times-circle'}"></i>
+                        ${result.status}
+                    </div>
+                    <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">
                         ${new Date().toLocaleTimeString()}
                     </div>
                 </div>
@@ -636,11 +1105,26 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             resultsContainer.style.display = 'block';
         }
 
-        function resetRotation() {
-            if (confirm('Reset site rotation to start from the first site?')) {
-                // This would require an AJAX endpoint - implement if needed
-                alert('Please use the Manage Sites page to reset rotation');
-            }
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'result-item success';
+            successDiv.innerHTML = `
+                <div class="result-header">
+                    <div class="result-status">
+                        <i class="fas fa-check-circle"></i>
+                        COMPLETED
+                    </div>
+                    <div style="color: rgba(255,255,255,0.6);">
+                        ${new Date().toLocaleTimeString()}
+                    </div>
+                </div>
+                <div class="result-details">
+                    <div>${message}</div>
+                </div>
+            `;
+            
+            resultsContent.insertBefore(successDiv, resultsContent.firstChild);
+            resultsContainer.style.display = 'block';
         }
 
         // Update presence every 2 minutes

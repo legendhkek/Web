@@ -1,0 +1,14 @@
+{
+  "proxies": [],
+  "stats": {
+    "total": 0,
+    "live": 0,
+    "dead": 0,
+    "last_check": null
+  },
+  "settings": {
+    "auto_check_enabled": true,
+    "check_interval_hours": 24,
+    "remove_dead_auto": true
+  }
+}

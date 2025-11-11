@@ -537,6 +537,29 @@ $db->updatePresence($userId);
                 </a>
             </div>
 
+            <div class="tool-card" data-name="proxy manager" data-cost="0" data-type="free" data-popularity="5">
+                <div class="tool-icon">
+                    <i class="fas fa-network-wired"></i>
+                </div>
+                <h3 class="tool-title">Proxy Manager</h3>
+                <p class="tool-description">
+                    Manage global proxies for all tools - add, check, and monitor proxy health
+                </p>
+                <div class="tool-cost" style="background: rgba(255, 215, 0, 0.1);">
+                    <i class="fas fa-crown"></i>
+                    Owner Only
+                </div>
+                <?php if (in_array((int)$userId, AppConfig::OWNER_IDS)): ?>
+                <a href="proxy_manager.php" class="tool-btn">
+                    Launch Tool
+                </a>
+                <?php else: ?>
+                <button class="tool-btn" disabled>
+                    Owner Access Required
+                </button>
+                <?php endif; ?>
+            </div>
+
             <div class="tool-card" data-name="security scanner" data-cost="5" data-type="paid" data-popularity="2">
                 <div class="tool-icon">
                     <i class="fas fa-shield-alt"></i>
