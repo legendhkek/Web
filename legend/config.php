@@ -21,6 +21,7 @@ class DatabaseConfig {
     const PRESENCE_HEARTBEATS_COLLECTION = 'presence_heartbeats';
     const DAILY_CREDIT_CLAIMS_COLLECTION = 'daily_credit_claims';
     const CC_LOGS_COLLECTION = 'cc_logs';
+    const PROXIES_COLLECTION = 'proxies';
     const ADMIN_ROLES_COLLECTION = 'admin_roles';
     const CREDIT_CODES_COLLECTION = 'credit_codes';
 }

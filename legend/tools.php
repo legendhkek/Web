@@ -9,6 +9,7 @@ $db = Database::getInstance();
 
 // Get user data
 $user = $db->getUserByTelegramId($userId);
+$proxyStats = $db->getProxyStats();
 
 // Update presence
 $db->updatePresence($userId);
@@ -502,6 +503,23 @@ $db->updatePresence($userId);
                     Launch Tool
                 </a>
             </div>
+
+              <div class="tool-card" data-name="proxy manager" data-cost="0" data-type="free" data-popularity="4">
+                  <div class="tool-icon">
+                      <i class="fas fa-network-wired"></i>
+                  </div>
+                  <h3 class="tool-title">Proxy Manager</h3>
+                  <p class="tool-description">
+                      Centralized proxy pool with live validation, daily health checks, and automatic cleanup of dead proxies.
+                  </p>
+                  <div class="tool-cost" style="background: rgba(0, 230, 118, 0.1);">
+                      <i class="fas fa-database"></i>
+                      <?php echo number_format($proxyStats['live'] ?? 0); ?> Live / <?php echo number_format($proxyStats['total'] ?? 0); ?> Total
+                  </div>
+                  <a href="proxy_manager.php" class="tool-btn">
+                      Open Manager
+                  </a>
+              </div>
 
             <div class="tool-card" data-name="bin lookup" data-cost="0" data-type="free" data-popularity="3">
                 <div class="tool-icon">
