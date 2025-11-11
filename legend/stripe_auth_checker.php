@@ -28,6 +28,7 @@ class StripeAuthChecker {
     private $muid = null;
     private $sid = null;
     private $stripePattern = null;
+    private $logBuffer = [];
     
     public function __construct($domain, $proxy = null) {
         $this->domain = rtrim($domain, '/');
@@ -72,7 +73,16 @@ class StripeAuthChecker {
     
     private function log($message, $level = "INFO") {
         $timestamp = date('H:i:s');
-        echo "[$timestamp] [$level] $message\n";
+        $entry = [
+            'timestamp' => $timestamp,
+            'level' => $level,
+            'message' => $message
+        ];
+        $this->logBuffer[] = $entry;
+
+        if (PHP_SAPI === 'cli') {
+            echo "[$timestamp] [$level] $message\n";
+        }
     }
     
     private function generateEmail() {
@@ -748,8 +758,13 @@ class StripeAuthChecker {
         $result['account_email'] = $this->accountEmail;
         $result['success'] = $success;
         $result['pm_id'] = $this->pmId;
+        $result['logs'] = $this->logBuffer;
         
         return $result;
+    }
+
+    public function getLogs(): array {
+        return $this->logBuffer;
     }
 }
 
@@ -827,7 +842,8 @@ function auth($domain, $ccString, $proxy = null) {
                 'status' => 'ERROR',
                 'message' => 'Incorrect card number',
                 'account_email' => null,
-                'pm_id' => null
+                'pm_id' => null,
+                'logs' => []
             ];
         }
         
@@ -838,19 +854,25 @@ function auth($domain, $ccString, $proxy = null) {
                 'status' => 'ERROR',
                 'message' => $error,
                 'account_email' => null,
-                'pm_id' => null
+                'pm_id' => null,
+                'logs' => []
             ];
         }
         
         $checker = new StripeAuthChecker($domain, $proxy);
-        return $checker->run($cc, $mm, $yyyy, $cvv);
+        $result = $checker->run($cc, $mm, $yyyy, $cvv);
+        if (!isset($result['logs'])) {
+            $result['logs'] = $checker->getLogs();
+        }
+        return $result;
     } catch (Exception $e) {
         return [
             'success' => false,
             'status' => 'ERROR',
             'message' => 'Exception: ' . $e->getMessage(),
             'account_email' => null,
-            'pm_id' => null
+            'pm_id' => null,
+            'logs' => []
         ];
     }
 }

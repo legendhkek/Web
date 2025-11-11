@@ -370,5 +370,198 @@ class DatabaseFallback {
         }
         return false;
     }
+
+    // Proxy management (fallback)
+    public function saveProxy(array $proxyData) {
+        $proxies = $this->loadData('proxies');
+        $id = $proxyData['proxy'] ?? null;
+        if ($id === null) {
+            throw new Exception('Proxy string missing');
+        }
+
+        $hash = sha1($id);
+        $now = time();
+        $status = $proxyData['status'] ?? 'unknown';
+
+        $index = null;
+        foreach ($proxies as $key => $existing) {
+            if (($existing['proxy'] ?? '') === $id || ($existing['id'] ?? '') === $hash) {
+                $index = $key;
+                break;
+            }
+        }
+
+        if ($index === null) {
+            $record = [
+                'id' => $hash,
+                'proxy' => $id,
+                'host' => $proxyData['host'] ?? null,
+                'port' => (int)($proxyData['port'] ?? 0),
+                'username' => $proxyData['username'] ?? null,
+                'created_at' => $now,
+                'added_by' => $proxyData['added_by'] ?? null,
+                'total_checks' => 0,
+                'live_checks' => 0,
+                'dead_checks' => 0
+            ];
+        } else {
+            $record = $proxies[$index];
+        }
+
+        $record['status'] = $status;
+        $record['ip'] = $proxyData['ip'] ?? null;
+        $record['country'] = $proxyData['country'] ?? null;
+        $record['city'] = $proxyData['city'] ?? null;
+        $record['latency_ms'] = $proxyData['latency_ms'] ?? null;
+        $record['last_check_message'] = $proxyData['message'] ?? null;
+        $record['last_check_at'] = $now;
+        $record['updated_at'] = $now;
+        $record['total_checks'] = ($record['total_checks'] ?? 0) + 1;
+        $record['live_checks'] = ($record['live_checks'] ?? 0) + ($status === 'live' ? 1 : 0);
+        $record['dead_checks'] = ($record['dead_checks'] ?? 0) + ($status === 'live' ? 0 : 1);
+
+        if ($status === 'live') {
+            $record['last_seen_live_at'] = $now;
+        }
+
+        if ($index === null) {
+            $proxies[] = $record;
+        } else {
+            $proxies[$index] = $record;
+        }
+
+        $this->saveData('proxies', $proxies);
+        return $record;
+    }
+
+    public function getProxies(array $filters = [], array $options = []) {
+        $proxies = $this->loadData('proxies');
+
+        if (!empty($filters['status'])) {
+            $proxies = array_filter($proxies, function ($proxy) use ($filters) {
+                return ($proxy['status'] ?? null) === $filters['status'];
+            });
+        }
+
+        if (!empty($filters['search'])) {
+            $search = strtolower($filters['search']);
+            $proxies = array_filter($proxies, function ($proxy) use ($search) {
+                return (strpos(strtolower($proxy['proxy'] ?? ''), $search) !== false) ||
+                       (strpos(strtolower($proxy['country'] ?? ''), $search) !== false) ||
+                       (strpos(strtolower($proxy['ip'] ?? ''), $search) !== false);
+            });
+        }
+
+        usort($proxies, function ($a, $b) {
+            return ($b['last_check_at'] ?? 0) <=> ($a['last_check_at'] ?? 0);
+        });
+
+        $skip = isset($options['skip']) ? (int)$options['skip'] : 0;
+        $limit = isset($options['limit']) ? (int)$options['limit'] : 100;
+
+        return array_slice(array_values($proxies), $skip, $limit);
+    }
+
+    public function getProxyByString(string $proxy) {
+        $proxies = $this->loadData('proxies');
+        foreach ($proxies as $record) {
+            if (($record['proxy'] ?? '') === $proxy) {
+                return $record;
+            }
+        }
+        return null;
+    }
+
+    public function getProxyById(string $id) {
+        $proxies = $this->loadData('proxies');
+        foreach ($proxies as $record) {
+            if (($record['id'] ?? '') === $id || ($record['proxy'] ?? '') === $id) {
+                return $record;
+            }
+        }
+        return null;
+    }
+
+    public function removeProxyById(string $id) {
+        $proxies = $this->loadData('proxies');
+        $removed = false;
+
+        $proxies = array_filter($proxies, function ($proxy) use ($id, &$removed) {
+            $match = ($proxy['id'] ?? '') === $id || ($proxy['proxy'] ?? '') === $id;
+            if ($match) {
+                $removed = true;
+                return false;
+            }
+            return true;
+        });
+
+        if ($removed) {
+            $this->saveData('proxies', array_values($proxies));
+        }
+
+        return $removed;
+    }
+
+    public function removeDeadProxies(int $olderThanSeconds = 86400) {
+        $proxies = $this->loadData('proxies');
+        $threshold = time() - $olderThanSeconds;
+        $removed = 0;
+
+        $retained = [];
+
+        foreach ($proxies as $proxy) {
+            $isDead = ($proxy['status'] ?? '') === 'dead';
+            $lastCheck = $proxy['last_check_at'] ?? 0;
+
+            if ($isDead && $lastCheck <= $threshold) {
+                $removed++;
+                continue;
+            }
+
+            $retained[] = $proxy;
+        }
+
+        if ($removed > 0) {
+            $this->saveData('proxies', $retained);
+        }
+
+        return $removed;
+    }
+
+    public function getProxyStats() {
+        $proxies = $this->loadData('proxies');
+        $total = count($proxies);
+        $live = 0;
+        $dead = 0;
+        $stale = 0;
+        $latest = 0;
+        $staleThreshold = time() - 86400;
+
+        foreach ($proxies as $proxy) {
+            $status = $proxy['status'] ?? 'unknown';
+            if ($status === 'live') {
+                $live++;
+            } elseif ($status === 'dead') {
+                $dead++;
+            }
+
+            $lastCheck = $proxy['last_check_at'] ?? 0;
+            if ($lastCheck > $latest) {
+                $latest = $lastCheck;
+            }
+
+            if ($lastCheck < $staleThreshold) {
+                $stale++;
+            }
+        }
+
+        return [
+            'total' => $total,
+            'live' => $live,
+            'dead' => $dead,
+            'stale' => $stale,
+            'last_checked_at' => $latest > 0 ? $latest : null
+        ];
+    }
 }
 ?>

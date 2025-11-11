@@ -498,6 +498,229 @@ class Database {
         
         return $toolUsage->insertOne($usageData);
     }
+
+    // Proxy management
+    public function saveProxy(array $proxyData) {
+        if ($this->useFallback) {
+            return $this->getFallback()->saveProxy($proxyData);
+        }
+
+        $collection = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        if (!$collection) {
+            throw new Exception('Proxy collection unavailable');
+        }
+
+        $now = new MongoDB\BSON\UTCDateTime();
+        $status = $proxyData['status'] ?? 'unknown';
+
+        $update = [
+            '$set' => [
+                'proxy' => $proxyData['proxy'],
+                'host' => $proxyData['host'],
+                'port' => (int)$proxyData['port'],
+                'username' => $proxyData['username'],
+                'status' => $status,
+                'ip' => $proxyData['ip'] ?? null,
+                'country' => $proxyData['country'] ?? null,
+                'city' => $proxyData['city'] ?? null,
+                'latency_ms' => $proxyData['latency_ms'] ?? null,
+                'last_check_message' => $proxyData['message'] ?? null,
+                'last_check_at' => $now,
+                'updated_at' => $now
+            ],
+            '$inc' => [
+                'total_checks' => 1,
+                'live_checks' => $status === 'live' ? 1 : 0,
+                'dead_checks' => $status === 'live' ? 0 : 1
+            ],
+            '$setOnInsert' => [
+                'created_at' => $now,
+                'added_by' => $proxyData['added_by'] ?? null
+            ]
+        ];
+
+        if (!empty($proxyData['tags']) && is_array($proxyData['tags'])) {
+            $update['$set']['tags'] = array_values(array_unique($proxyData['tags']));
+        }
+
+        if ($status === 'live') {
+            $update['$set']['last_seen_live_at'] = $now;
+        }
+
+        $collection->updateOne(
+            ['proxy' => $proxyData['proxy']],
+            $update,
+            ['upsert' => true]
+        );
+
+        return $collection->findOne(['proxy' => $proxyData['proxy']]);
+    }
+
+    public function bulkSaveProxies(array $proxies) {
+        $results = [];
+        foreach ($proxies as $proxy) {
+            try {
+                $results[] = $this->saveProxy($proxy);
+            } catch (Exception $e) {
+                logError('Bulk proxy save failed', [
+                    'proxy' => $proxy['proxy'] ?? null,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+        return $results;
+    }
+
+    public function getProxies(array $filters = [], array $options = []) {
+        if ($this->useFallback) {
+            return $this->getFallback()->getProxies($filters, $options);
+        }
+
+        $collection = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        if (!$collection) {
+            return [];
+        }
+
+        $query = [];
+
+        if (!empty($filters['status'])) {
+            $query['status'] = $filters['status'];
+        }
+
+        if (!empty($filters['search'])) {
+            $regex = new MongoDB\BSON\Regex($filters['search'], 'i');
+            $query['$or'] = [
+                ['proxy' => $regex],
+                ['country' => $regex],
+                ['ip' => $regex]
+            ];
+        }
+
+        $limit = isset($options['limit']) ? (int)$options['limit'] : 100;
+        $skip = isset($options['skip']) ? (int)$options['skip'] : 0;
+        $sort = $options['sort'] ?? ['last_check_at' => -1];
+
+        return $collection->find($query, [
+            'limit' => $limit,
+            'skip' => $skip,
+            'sort' => $sort
+        ])->toArray();
+    }
+
+    public function getProxyByString(string $proxy) {
+        if ($this->useFallback) {
+            return $this->getFallback()->getProxyByString($proxy);
+        }
+
+        $collection = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        if (!$collection) {
+            return null;
+        }
+
+        return $collection->findOne(['proxy' => $proxy]);
+    }
+
+    public function getProxyById(string $id) {
+        if ($this->useFallback) {
+            return $this->getFallback()->getProxyById($id);
+        }
+
+        $collection = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        if (!$collection) {
+            return null;
+        }
+
+        try {
+            $objectId = new MongoDB\BSON\ObjectId($id);
+            $record = $collection->findOne(['_id' => $objectId]);
+            if ($record) {
+                return $record;
+            }
+        } catch (Exception $e) {
+            // Fall through to lookup by proxy string
+        }
+
+        return $collection->findOne(['proxy' => $id]);
+    }
+
+    public function removeProxyById(string $id) {
+        if ($this->useFallback) {
+            return $this->getFallback()->removeProxyById($id);
+        }
+
+        $collection = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        if (!$collection) {
+            return false;
+        }
+
+        try {
+            $objectId = new MongoDB\BSON\ObjectId($id);
+            $result = $collection->deleteOne(['_id' => $objectId]);
+            return $result->getDeletedCount() > 0;
+        } catch (Exception $e) {
+            // Allow fallback to string match on proxy field
+            $result = $collection->deleteOne(['proxy' => $id]);
+            return $result->getDeletedCount() > 0;
+        }
+    }
+
+    public function removeDeadProxies(int $olderThanSeconds = 86400) {
+        if ($this->useFallback) {
+            return $this->getFallback()->removeDeadProxies($olderThanSeconds);
+        }
+
+        $collection = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        if (!$collection) {
+            return 0;
+        }
+
+        $threshold = new MongoDB\BSON\UTCDateTime((time() - $olderThanSeconds) * 1000);
+        $result = $collection->deleteMany([
+            'status' => 'dead',
+            'last_check_at' => ['$lte' => $threshold]
+        ]);
+
+        return $result->getDeletedCount();
+    }
+
+    public function getProxyStats() {
+        if ($this->useFallback) {
+            return $this->getFallback()->getProxyStats();
+        }
+
+        $collection = $this->getCollection(DatabaseConfig::PROXIES_COLLECTION);
+        if (!$collection) {
+            return [
+                'total' => 0,
+                'live' => 0,
+                'dead' => 0,
+                'stale' => 0,
+                'last_checked_at' => null
+            ];
+        }
+
+        $total = $collection->countDocuments();
+        $live = $collection->countDocuments(['status' => 'live']);
+        $dead = $collection->countDocuments(['status' => 'dead']);
+
+        $staleThreshold = new MongoDB\BSON\UTCDateTime((time() - 86400) * 1000);
+        $stale = $collection->countDocuments([
+            'last_check_at' => ['$lt' => $staleThreshold]
+        ]);
+
+        $lastCheck = $collection->findOne([], [
+            'projection' => ['last_check_at' => 1],
+            'sort' => ['last_check_at' => -1]
+        ]);
+
+        return [
+            'total' => $total,
+            'live' => $live,
+            'dead' => $dead,
+            'stale' => $stale,
+            'last_checked_at' => $lastCheck['last_check_at'] ?? null
+        ];
+    }
     
     public function redeemCredits($userId, $credits, $xcoinCost) {
         if ($this->useFallback) {

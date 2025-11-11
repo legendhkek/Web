@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'usage_count' => 1,
                 'credits_used' => STRIPE_AUTH_COST,
                 'site' => $site,
-                'card' => substr($ccString, 0, 6) . 'XXXXXX' . substr($ccString, -4),
+                'card' => maskCardForDisplay($ccString),
                 'status' => $result['status'] ?? 'unknown'
             ], STRIPE_AUTH_COST);
             
@@ -89,8 +89,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             
             // Add site info to result
+            $freshUser = $db->getUserByTelegramId($userId);
             $result['site_used'] = $site;
-            $result['credits_remaining'] = $user['credits'] - STRIPE_AUTH_COST;
+            $result['credits_remaining'] = $freshUser['credits'] ?? ($user['credits'] - STRIPE_AUTH_COST);
+            $result['card_masked'] = maskCardForDisplay($ccString);
+            if (isset($result['logs']) && is_array($result['logs'])) {
+                $result['logs'] = array_slice($result['logs'], -6);
+            }
             
             echo json_encode([
                 'success' => true,
@@ -106,6 +111,171 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'message' => 'Check failed: ' . $e->getMessage()
             ]);
         }
+        exit;
+    } elseif ($_POST['action'] === 'mass_check') {
+        $cardsRaw = $_POST['cards'] ?? '';
+        $proxy = $_POST['proxy'] ?? null;
+        $cards = preg_split('/\r\n|\r|\n/', $cardsRaw);
+        $cards = array_values(array_filter(array_map('trim', $cards)));
+
+        if (empty($cards)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Provide at least one card for mass check.'
+            ]);
+            exit;
+        }
+
+        $maxBatch = 25;
+        $truncated = false;
+        if (count($cards) > $maxBatch) {
+            $cards = array_slice($cards, 0, $maxBatch);
+            $truncated = true;
+        }
+
+        $currentUser = $db->getUserByTelegramId($userId);
+        $availableCredits = $currentUser['credits'] ?? 0;
+        $results = [];
+        $processed = 0;
+        $successCount = 0;
+        $failureCount = 0;
+        $skippedCount = 0;
+        $creditsSpent = 0;
+
+        $stats = $db->getUserStats($userId);
+        $totalHits = $stats['total_hits'] ?? 0;
+        $totalCharge = $stats['total_charge_cards'] ?? 0;
+        $totalLive = $stats['total_live_cards'] ?? 0;
+
+        $seenCards = [];
+
+        foreach ($cards as $cardLine) {
+            if (isset($seenCards[$cardLine])) {
+                $skippedCount++;
+                $results[] = [
+                    'success' => false,
+                    'status' => 'SKIPPED',
+                    'message' => 'Duplicate card detected, skipping.',
+                    'card_masked' => maskCardForDisplay($cardLine),
+                    'credits_spent' => 0
+                ];
+                continue;
+            }
+            $seenCards[$cardLine] = true;
+
+            $maskedCard = maskCardForDisplay($cardLine);
+
+            if ($availableCredits < STRIPE_AUTH_COST) {
+                $skippedCount++;
+                $results[] = [
+                    'success' => false,
+                    'status' => 'SKIPPED',
+                    'message' => 'Insufficient credits, skipping.',
+                    'card_masked' => $maskedCard,
+                    'credits_spent' => 0
+                ];
+                continue;
+            }
+
+            if (!$db->deductCredits($userId, STRIPE_AUTH_COST)) {
+                $skippedCount++;
+                $results[] = [
+                    'success' => false,
+                    'status' => 'SKIPPED',
+                    'message' => 'Failed to deduct credits, skipping.',
+                    'card_masked' => $maskedCard,
+                    'credits_spent' => 0
+                ];
+                continue;
+            }
+
+            $availableCredits -= STRIPE_AUTH_COST;
+            $creditsSpent += STRIPE_AUTH_COST;
+
+            $site = getNextSite();
+            if (!$site) {
+                $db->addCredits($userId, STRIPE_AUTH_COST);
+                $availableCredits += STRIPE_AUTH_COST;
+                $creditsSpent -= STRIPE_AUTH_COST;
+                $failureCount++;
+                $results[] = [
+                    'success' => false,
+                    'status' => 'ERROR',
+                    'message' => 'No sites available for checking',
+                    'card_masked' => $maskedCard,
+                    'credits_spent' => 0
+                ];
+                continue;
+            }
+
+            try {
+                $result = auth($site, $cardLine, $proxy);
+                $result['site_used'] = $site;
+                $result['card_masked'] = $maskedCard;
+                $result['credits_spent'] = STRIPE_AUTH_COST;
+                if (isset($result['logs']) && is_array($result['logs'])) {
+                    $result['logs'] = array_slice($result['logs'], -6);
+                }
+
+                $db->logToolUsage($userId, 'stripe_auth_checker', [
+                    'usage_count' => 1,
+                    'credits_used' => STRIPE_AUTH_COST,
+                    'site' => $site,
+                    'card' => $maskedCard,
+                    'status' => $result['status'] ?? 'unknown'
+                ], STRIPE_AUTH_COST);
+
+                $processed++;
+                if (!empty($result['success'])) {
+                    $successCount++;
+                    $totalCharge++;
+                    $totalLive++;
+                } else {
+                    $failureCount++;
+                }
+                $totalHits++;
+                $results[] = $result;
+            } catch (Exception $e) {
+                $db->addCredits($userId, STRIPE_AUTH_COST);
+                $availableCredits += STRIPE_AUTH_COST;
+                $creditsSpent -= STRIPE_AUTH_COST;
+                $failureCount++;
+                $results[] = [
+                    'success' => false,
+                    'status' => 'ERROR',
+                    'message' => 'Check failed: ' . $e->getMessage(),
+                    'card_masked' => $maskedCard,
+                    'credits_spent' => 0
+                ];
+            }
+        }
+
+        if ($stats) {
+            $db->updateUserStats($userId, [
+                'total_hits' => $totalHits,
+                'total_charge_cards' => $totalCharge,
+                'total_live_cards' => $totalLive
+            ]);
+        }
+
+        $summary = [
+            'attempted' => count($cards),
+            'processed' => $processed,
+            'success' => $successCount,
+            'failed' => $failureCount,
+            'skipped' => $skippedCount,
+            'credits_spent' => $creditsSpent,
+            'truncated' => $truncated
+        ];
+
+        $freshUser = $db->getUserByTelegramId($userId);
+
+        echo json_encode([
+            'success' => true,
+            'results' => $results,
+            'summary' => $summary,
+            'credits_remaining' => $freshUser['credits'] ?? $availableCredits
+        ]);
         exit;
     }
 }
@@ -147,6 +317,19 @@ function getNextSite() {
     file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT));
     
     return $site;
+}
+
+function maskCardForDisplay(string $cardLine): string {
+    $parts = explode('|', $cardLine);
+    $number = preg_replace('/[^0-9]/', '', $parts[0] ?? '');
+    if (strlen($number) >= 6) {
+        $maskedCore = str_repeat('X', max(strlen($number) - 10, 0));
+        $masked = substr($number, 0, 6) . $maskedCore . substr($number, -4);
+    } else {
+        $masked = $number;
+    }
+    $parts[0] = $masked;
+    return implode('|', $parts);
 }
 
 // Get current site info for display
@@ -372,6 +555,11 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             background: rgba(239, 68, 68, 0.1);
         }
 
+        .result-item.warning {
+            border-color: rgba(251, 191, 36, 0.4);
+            background: rgba(251, 191, 36, 0.12);
+        }
+
         .result-header {
             display: flex;
             justify-content: space-between;
@@ -496,20 +684,19 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
         <div class="checker-card">
             <h2 style="margin-bottom: 1.5rem;"><i class="fas fa-search"></i> Check Card</h2>
             
-            <form id="checkForm">
-                <div class="form-group">
-                    <label for="cardInput">
-                        <i class="fas fa-credit-card"></i> Card Information
-                        <span style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">(Format: XXXXXXXXXXXX|MM|YYYY|CVV)</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        id="cardInput" 
-                        name="card" 
-                        placeholder="4532015112830366|12|2025|123"
-                        required
-                    >
-                </div>
+                <form id="checkForm">
+                    <div class="form-group">
+                        <label for="cardInput">
+                            <i class="fas fa-credit-card"></i> Card Information
+                            <span style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">(Format: XXXXXXXXXXXXXXXX|MM|YYYY|CVV, one per line for mass check)</span>
+                        </label>
+                        <textarea 
+                            id="cardInput" 
+                            name="cards" 
+                            placeholder="4532015112830366|12|2025|123&#10;4485548481235456|09|2026|321"
+                            required
+                        ></textarea>
+                    </div>
 
                 <div class="form-group">
                     <label for="proxyInput">
@@ -524,9 +711,9 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
                     >
                 </div>
 
-                <button type="submit" class="btn-primary" id="checkBtn">
-                    <i class="fas fa-play"></i> Check Card (<?php echo STRIPE_AUTH_COST; ?> Credit)
-                </button>
+                    <button type="submit" class="btn-primary" id="checkBtn">
+                        <i class="fas fa-play"></i> Check Card(s) (<?php echo STRIPE_AUTH_COST; ?> Credit each)
+                    </button>
             </form>
         </div>
 
@@ -542,28 +729,60 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
         const resultsContainer = document.getElementById('resultsContainer');
         const resultsContent = document.getElementById('resultsContent');
         const userCreditsEl = document.getElementById('userCredits');
+        const cardInputEl = document.getElementById('cardInput');
+        const proxyInputEl = document.getElementById('proxyInput');
 
         checkForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const formData = new FormData(checkForm);
-            formData.append('action', 'check_card');
-            
+
+            const rawCards = cardInputEl.value.trim();
+            if (!rawCards) {
+                showError('Card data is required');
+                return;
+            }
+
+            const cards = rawCards
+                .split(/\r?\n/)
+                .map(card => card.trim())
+                .filter(card => card.length > 0);
+
+            if (cards.length === 0) {
+                showError('Card data is required');
+                return;
+            }
+
+            const isMass = cards.length > 1;
+            const formData = new FormData();
+            formData.append('action', isMass ? 'mass_check' : 'check_card');
+            formData.append(isMass ? 'cards' : 'card', isMass ? cards.join('\n') : cards[0]);
+
+            const proxy = proxyInputEl.value.trim();
+            if (proxy) {
+                formData.append('proxy', proxy);
+            }
+
             checkBtn.disabled = true;
-            checkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
-            
+            checkBtn.innerHTML = isMass
+                ? `<i class="fas fa-spinner fa-spin"></i> Checking ${cards.length} cards...`
+                : '<i class="fas fa-spinner fa-spin"></i> Checking...';
+
             try {
                 const response = await fetch('stripe_auth_tool.php', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
-                    displayResult(data.result);
-                    if (data.result.credits_remaining !== undefined) {
-                        userCreditsEl.textContent = data.result.credits_remaining.toLocaleString();
+                    if (isMass) {
+                        displayMassResults(data.results || [], data.summary || null);
+                    } else {
+                        displayResult(data.result);
+                    }
+
+                    if (data.credits_remaining !== undefined) {
+                        userCreditsEl.textContent = Number(data.credits_remaining).toLocaleString();
                     }
                 } else {
                     showError(data.message || 'Check failed');
@@ -572,16 +791,27 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
                 showError('Network error: ' + error.message);
             } finally {
                 checkBtn.disabled = false;
-                checkBtn.innerHTML = '<i class="fas fa-play"></i> Check Card (<?php echo STRIPE_AUTH_COST; ?> Credit)';
+                checkBtn.innerHTML = '<i class="fas fa-play"></i> Check Card(s) (<?php echo STRIPE_AUTH_COST; ?> Credit each)';
             }
         });
 
         function displayResult(result) {
+            const statusLabel = (result.status || 'UNKNOWN').toUpperCase();
             const isSuccess = result.success === true;
+            let className = 'result-item ';
+            if (statusLabel === 'SKIPPED') {
+                className += 'warning';
+            } else {
+                className += isSuccess ? 'success' : 'error';
+            }
+
             const resultDiv = document.createElement('div');
-            resultDiv.className = 'result-item ' + (isSuccess ? 'success' : 'error');
-            
+            resultDiv.className = className;
+
             let detailsHTML = '';
+            if (result.card_masked) {
+                detailsHTML += `<div><strong>Card:</strong> ${result.card_masked}</div>`;
+            }
             if (result.site_used) {
                 detailsHTML += `<div><strong>Site:</strong> ${result.site_used}</div>`;
             }
@@ -594,12 +824,15 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
             if (result.message) {
                 detailsHTML += `<div><strong>Message:</strong> ${result.message}</div>`;
             }
-            
+            if (typeof result.credits_spent !== 'undefined') {
+                detailsHTML += `<div><strong>Credits Used:</strong> ${result.credits_spent}</div>`;
+            }
+
             resultDiv.innerHTML = `
                 <div class="result-header">
                     <div class="result-status">
-                        <i class="fas fa-${isSuccess ? 'check-circle' : 'times-circle'}"></i>
-                        ${result.status || 'UNKNOWN'}
+                        <i class="fas fa-${isSuccess ? 'check-circle' : (statusLabel === 'SKIPPED' ? 'pause-circle' : 'times-circle')}"></i>
+                        ${statusLabel}
                     </div>
                     <div style="color: rgba(255,255,255,0.6);">
                         ${new Date().toLocaleTimeString()}
@@ -609,8 +842,54 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
                     ${detailsHTML}
                 </div>
             `;
-            
+
             resultsContent.insertBefore(resultDiv, resultsContent.firstChild);
+            resultsContainer.style.display = 'block';
+        }
+
+        function displayMassResults(results, summary) {
+            if (Array.isArray(results)) {
+                for (let i = results.length - 1; i >= 0; i--) {
+                    displayResult(results[i]);
+                }
+            }
+            if (summary) {
+                displaySummary(summary);
+            }
+        }
+
+        function displaySummary(summary) {
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'result-item';
+
+            const parts = [
+                `<strong>Processed:</strong> ${summary.processed}/${summary.attempted}`,
+                `<strong>Live:</strong> ${summary.success}`,
+                `<strong>Failed:</strong> ${summary.failed}`,
+                `<strong>Skipped:</strong> ${summary.skipped}`,
+                `<strong>Credits Spent:</strong> ${summary.credits_spent}`
+            ];
+
+            if (summary.truncated) {
+                parts.push('<em>Batch truncated to 25 cards.</em>');
+            }
+
+            summaryDiv.innerHTML = `
+                <div class="result-header">
+                    <div class="result-status">
+                        <i class="fas fa-list"></i>
+                        MASS SUMMARY
+                    </div>
+                    <div style="color: rgba(255,255,255,0.6);">
+                        ${new Date().toLocaleTimeString()}
+                    </div>
+                </div>
+                <div class="result-details">
+                    <div>${parts.join('<br>')}</div>
+                </div>
+            `;
+
+            resultsContent.insertBefore(summaryDiv, resultsContent.firstChild);
             resultsContainer.style.display = 'block';
         }
 
@@ -631,7 +910,7 @@ $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['r
                     <div>${message}</div>
                 </div>
             `;
-            
+
             resultsContent.insertBefore(errorDiv, resultsContent.firstChild);
             resultsContainer.style.display = 'block';
         }
