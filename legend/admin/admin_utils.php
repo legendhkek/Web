@@ -6,14 +6,28 @@
 
 /**
  * Format date in a user-friendly way
- * @param int $timestamp Unix timestamp
+ * @param mixed $timestamp Unix timestamp, MongoDB UTCDateTime, or date string
  * @return string Formatted date
  */
 function formatDate($timestamp) {
     if (!$timestamp) return 'Never';
     
+    // Handle MongoDB UTCDateTime objects
+    if (is_object($timestamp) && method_exists($timestamp, 'toDateTime')) {
+        $timestamp = $timestamp->toDateTime()->getTimestamp();
+    } elseif (is_object($timestamp) && isset($timestamp->sec)) {
+        // Legacy MongoDB date format
+        $timestamp = $timestamp->sec;
+    } elseif (is_string($timestamp) && !is_numeric($timestamp)) {
+        // Try to parse date string
+        $timestamp = strtotime($timestamp);
+        if ($timestamp === false) return 'Invalid Date';
+    } elseif (!is_numeric($timestamp)) {
+        return 'Invalid Date';
+    }
+    
     $now = time();
-    $diff = $now - $timestamp;
+    $diff = $now - (int)$timestamp;
     
     if ($diff < 60) {
         return 'Just now';
