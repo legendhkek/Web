@@ -56,6 +56,11 @@ class Database {
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
         $userStats = $this->getCollection(DatabaseConfig::USER_STATS_COLLECTION);
         
+        if (!$users || !$userStats) {
+            logError('Failed to get collections for user creation', ['telegram_id' => $telegramData['id']]);
+            throw new Exception('Database collections unavailable');
+        }
+        
         $userData = [
             'telegram_id' => $telegramData['id'],
             'username' => $telegramData['username'] ?? null,
@@ -93,6 +98,10 @@ class Database {
         }
 
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        if (!$users) {
+            logError('Failed to get users collection for getAllUsers');
+            return [];
+        }
         return $users->find([], ['limit' => $limit, 'skip' => $offset, 'sort' => ['created_at' => -1]])->toArray();
     }
 
@@ -110,6 +119,11 @@ class Database {
         }
 
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        if (!$users) {
+            logError('Failed to get users collection for getUserById', ['user_id' => $userId]);
+            return null;
+        }
+        
         // Try to find by ObjectId first, then by telegram_id as fallback
         try {
             $result = $users->findOne(['_id' => new MongoDB\BSON\ObjectId($userId)]);
@@ -128,6 +142,10 @@ class Database {
         }
         
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        if (!$users) {
+            logError('Failed to get users collection for getUserByTelegramId', ['telegram_id' => $telegramId]);
+            return null;
+        }
         return $users->findOne(['telegram_id' => $telegramId]);
     }
     
@@ -137,6 +155,10 @@ class Database {
         }
 
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        if (!$users) {
+            logError('Failed to get users collection for updateUserStatus', ['telegram_id' => $telegramId]);
+            return;
+        }
         $users->updateOne(
             ['telegram_id' => $telegramId],
             ['$set' => ['status' => $status, 'updated_at' => new MongoDB\BSON\UTCDateTime()]]
@@ -149,6 +171,10 @@ class Database {
         }
 
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        if (!$users) {
+            logError('Failed to get users collection for updateUserRole', ['telegram_id' => $telegramId]);
+            return false;
+        }
         $result = $users->updateOne(
             ['telegram_id' => $telegramId],
             ['$set' => ['role' => $role, 'updated_at' => new MongoDB\BSON\UTCDateTime()]]
@@ -162,6 +188,10 @@ class Database {
         }
         
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        if (!$users) {
+            logError('Failed to get users collection for updateUserLastLogin', ['telegram_id' => $telegramId]);
+            return;
+        }
         $users->updateOne(
             ['telegram_id' => $telegramId],
             ['$set' => [
@@ -177,11 +207,35 @@ class Database {
         }
         
         $userStats = $this->getCollection(DatabaseConfig::USER_STATS_COLLECTION);
+        if (!$userStats) {
+            logError('Failed to get user_stats collection', ['telegram_id' => $telegramId]);
+            return null;
+        }
         return $userStats->findOne(['user_id' => $telegramId]);
     }
     
     public function updateUserStats($telegramId, $statsUpdate) {
+        if ($this->useFallback) {
+            // Fallback expects different signature: updateUserStats($telegramId, $type, $increment)
+            // For compatibility, handle array updates by iterating
+            if (is_array($statsUpdate)) {
+                foreach ($statsUpdate as $key => $value) {
+                    if ($key === 'updated_at') continue; // Skip timestamp in fallback
+                    if (is_numeric($value)) {
+                        // If it's a numeric increment, use the fallback method
+                        $this->getFallback()->updateUserStats($telegramId, $key, $value);
+                    }
+                }
+            }
+            return;
+        }
+        
         $userStats = $this->getCollection(DatabaseConfig::USER_STATS_COLLECTION);
+        if (!$userStats) {
+            logError('Failed to get user_stats collection for update', ['telegram_id' => $telegramId]);
+            return;
+        }
+        
         $statsUpdate['updated_at'] = new MongoDB\BSON\UTCDateTime();
         $userStats->updateOne(
             ['user_id' => $telegramId],
@@ -261,6 +315,10 @@ class Database {
         }
         
         $claims = $this->getCollection(DatabaseConfig::DAILY_CREDIT_CLAIMS_COLLECTION);
+        if (!$claims) {
+            logError('Failed to get daily_credit_claims collection', ['telegram_id' => $telegramId]);
+            return false;
+        }
         $today = date('Y-m-d');
         $existingClaim = $claims->findOne([
             'user_id' => $telegramId,
@@ -284,6 +342,10 @@ class Database {
         }
         
         $claims = $this->getCollection(DatabaseConfig::DAILY_CREDIT_CLAIMS_COLLECTION);
+        if (!$claims) {
+            logError('Failed to get daily_credit_claims collection for claim', ['telegram_id' => $telegramId]);
+            return false;
+        }
         $claims->insertOne([
             'user_id' => $telegramId,
             'claim_date' => date('Y-m-d'),
@@ -307,6 +369,10 @@ class Database {
         }
         
         $presence = $this->getCollection(DatabaseConfig::PRESENCE_HEARTBEATS_COLLECTION);
+        if (!$presence) {
+            logError('Failed to get presence_heartbeats collection', ['telegram_id' => $telegramId]);
+            return;
+        }
         $presence->updateOne(
             ['user_id' => $telegramId],
             ['$set' => ['last_seen_at' => new MongoDB\BSON\UTCDateTime()]],
@@ -321,6 +387,11 @@ class Database {
         
         $presence = $this->getCollection(DatabaseConfig::PRESENCE_HEARTBEATS_COLLECTION);
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        
+        if (!$presence || !$users) {
+            logError('Failed to get collections for getOnlineUsers');
+            return [];
+        }
         
         $fiveMinutesAgo = new MongoDB\BSON\UTCDateTime((time() - 300) * 1000);
         
@@ -349,6 +420,11 @@ class Database {
         $userStats = $this->getCollection(DatabaseConfig::USER_STATS_COLLECTION);
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
         
+        if (!$userStats || !$users) {
+            logError('Failed to get collections for getTopUsers');
+            return [];
+        }
+        
         $pipeline = [
             ['$lookup' => [
                 'from' => DatabaseConfig::USERS_COLLECTION,
@@ -371,11 +447,24 @@ class Database {
         }
         
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        if (!$users) {
+            logError('Failed to get users collection for getGlobalStats');
+            return [
+                'total_users' => 0,
+                'total_hits' => 0,
+                'total_charge_cards' => 0,
+                'total_live_cards' => 0
+            ];
+        }
+        
         $totalUsers = $users->countDocuments();
 
         // Prefer CC logs for accurate global live/charged counts
         try {
             $ccLogs = $this->getCollection(DatabaseConfig::CC_LOGS_COLLECTION);
+            if (!$ccLogs) {
+                throw new Exception('CC logs collection unavailable');
+            }
             $totalHits = $ccLogs->countDocuments([]);
             $totalCharged = $ccLogs->countDocuments(['status' => 'charged']);
             // Count 'live' and also treat 'approved' as live if present
@@ -390,6 +479,14 @@ class Database {
         } catch (Exception $e) {
             // Fallback to user_stats aggregation if CC logs not available
             $userStats = $this->getCollection(DatabaseConfig::USER_STATS_COLLECTION);
+            if (!$userStats) {
+                return [
+                    'total_users' => $totalUsers,
+                    'total_hits' => 0,
+                    'total_charge_cards' => 0,
+                    'total_live_cards' => 0
+                ];
+            }
             $statsAgg = $userStats->aggregate([
                 ['$group' => [
                     '_id' => null,
@@ -419,6 +516,10 @@ class Database {
             return count($users);
         }
         $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        if (!$users) {
+            logError('Failed to get users collection for getTotalUsersCount');
+            return 0;
+        }
         return $users->countDocuments();
     }
 
@@ -428,6 +529,10 @@ class Database {
             return count($claims);
         }
         $claims = $this->getCollection(DatabaseConfig::DAILY_CREDIT_CLAIMS_COLLECTION);
+        if (!$claims) {
+            logError('Failed to get daily_credit_claims collection for getTotalCreditsClaimed');
+            return 0;
+        }
         return $claims->countDocuments();
     }
 
@@ -438,6 +543,10 @@ class Database {
             return 0;
         }
         $toolUsage = $this->getCollection(DatabaseConfig::TOOL_USAGE_COLLECTION);
+        if (!$toolUsage) {
+            logError('Failed to get tool_usage collection for getTotalToolUses');
+            return 0;
+        }
         return $toolUsage->countDocuments();
     }
 
@@ -447,6 +556,10 @@ class Database {
         }
 
         $auditLog = $this->getCollection('audit_logs');
+        if (!$auditLog) {
+            logError('Failed to get audit_logs collection', ['admin_id' => $adminId]);
+            return;
+        }
         $auditLog->insertOne([
             'admin_id' => $adminId,
             'action' => $action,
@@ -463,6 +576,10 @@ class Database {
         }
 
         $auditLog = $this->getCollection('audit_logs');
+        if (!$auditLog) {
+            logError('Failed to get audit_logs collection for getAuditLogs');
+            return [];
+        }
         return $auditLog->find([], [
             'limit' => $limit, 
             'skip' => $offset, 
@@ -480,6 +597,10 @@ class Database {
         }
         
         $toolUsage = $this->getCollection(DatabaseConfig::TOOL_USAGE_COLLECTION);
+        if (!$toolUsage) {
+            logError('Failed to get tool_usage collection', ['user_id' => $userId]);
+            return false;
+        }
         
         $usageData = [
             'user_id' => $userId,
