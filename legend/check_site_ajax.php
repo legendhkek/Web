@@ -1,8 +1,10 @@
 <?php
-session_start();
 require_once 'config.php';
 require_once 'database.php';
 require_once 'auth.php';
+
+// Initialize secure session
+initSecureSession();
 
 set_time_limit(300);
 ini_set('max_execution_time', 300);
@@ -49,7 +51,8 @@ if (!$is_owner && $current_credits < 1) {
 }
 
 $site_url = isset($_GET['site']) ? filter_var(trim($_GET['site']), FILTER_SANITIZE_URL) : '';
-$proxy = isset($_GET['proxy']) ? filter_var(trim($_GET['proxy']), FILTER_SANITIZE_STRING) : '';
+// FILTER_SANITIZE_STRING is deprecated in PHP 8.1+, use htmlspecialchars instead
+$proxy = isset($_GET['proxy']) ? htmlspecialchars(trim($_GET['proxy']), ENT_QUOTES, 'UTF-8') : '';
 if (empty($site_url)) {
     echo json_encode([
         'site' => $site_url,

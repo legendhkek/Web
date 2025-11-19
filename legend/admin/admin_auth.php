@@ -7,10 +7,8 @@
 require_once '../config.php';
 require_once '../database.php';
 
-// Initialize session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Initialize secure session
+initSecureSession();
 
 // Initialize database instance
 $db = Database::getInstance();

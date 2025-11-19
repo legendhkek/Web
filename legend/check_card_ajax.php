@@ -3,12 +3,6 @@
 ini_set('display_errors', 0);
 error_reporting(0);
 
-// Optimize for concurrent requests
-session_start();
-
-// Close session early to prevent blocking
-session_write_close();
-
 // Start output buffering to prevent any accidental output
 ob_start();
 
@@ -26,8 +20,11 @@ header('Content-Type: application/json');
 
 $start_time = microtime(true);
 
-// Check authentication without redirecting
+// Check authentication without redirecting - use secure session
 initSecureSession();
+
+// Close session early to prevent blocking (after initSecureSession)
+session_write_close();
 
 if (!isset($_SESSION['user_id']) && !isset($_SESSION['telegram_id'])) {
     echo json_encode([

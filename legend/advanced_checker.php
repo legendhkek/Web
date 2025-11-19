@@ -1,8 +1,10 @@
 <?php
-session_start();
 require_once 'config.php';
 require_once 'database.php';
 require_once 'auth.php';
+
+// Initialize secure session
+initSecureSession();
 
 // Check if user is authenticated
 if (empty($_SESSION['user_id']) && empty($_SESSION['telegram_id'])) {

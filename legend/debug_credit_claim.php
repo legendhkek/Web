@@ -26,7 +26,8 @@ foreach ($required_files as $file) {
 
 // Test session
 echo "\n3. Testing session:\n";
-session_start();
+require_once 'config.php';
+initSecureSession();
 echo "Session status: " . session_status() . "\n";
 echo "Session ID: " . session_id() . "\n";
 echo "Session data: " . print_r($_SESSION, true) . "\n";

@@ -27,15 +27,12 @@ if (!is_array($owner_ids)) {
 $is_admin = in_array($telegram_id, $admin_ids);
 $is_owner = in_array($telegram_id, $owner_ids);
 
+// Initialize secure session
+initSecureSession();
+
 // Check session variables
-session_start();
 $session_is_admin = isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true;
 $session_is_owner = isset($_SESSION['is_owner']) && $_SESSION['is_owner'] === true;
-
-// Try to initialize session if not already started
-if (function_exists('initSecureSession')) {
-    initSecureSession();
-}
 
 // Output the results
 header('Content-Type: application/json');

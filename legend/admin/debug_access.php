@@ -5,10 +5,8 @@
 require_once '../config.php';
 require_once '../database.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Initialize secure session
+initSecureSession();
 
 echo "<h2>Admin Access Debug Information</h2>";
 echo "<hr>";

@@ -4,10 +4,12 @@
  * Earn credits/keys by finding working proxies
  */
 
-session_start();
 require_once 'config.php';
 require_once 'database.php';
 require_once 'auth.php';
+
+// Initialize secure session
+initSecureSession();
 
 // Check authentication
 if (empty($_SESSION['user_id']) && empty($_SESSION['telegram_id'])) {

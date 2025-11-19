@@ -3,10 +3,8 @@
 require_once '../config.php';
 require_once '../database.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Initialize secure session
+initSecureSession();
 
 // Check if user is logged in
 if (empty($_SESSION['user_id']) && empty($_SESSION['telegram_id'])) {
