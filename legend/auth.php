@@ -234,29 +234,6 @@ class TelegramAuth {
     sendTelegramHtml($message);
     }
     
-    public static function requireAuth() {
-        initSecureSession();
-        
-        if (!isset($_SESSION['user_id'])) {
-            // Store the current page for redirect after login
-            $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-            header('Location: login.php');
-            exit();
-        }
-        
-        // Check session timeout
-        if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time']) > AppConfig::SESSION_TIMEOUT) {
-            session_destroy();
-            header('Location: login.php?timeout=1');
-            exit();
-        }
-        
-        // Update last activity
-        $_SESSION['last_activity'] = time();
-        
-        return $_SESSION['user_id'];
-    }
-    
     public static function getCurrentUser() {
         initSecureSession();
         
