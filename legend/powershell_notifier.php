@@ -30,16 +30,17 @@ class PowerShellNotifier {
         
         $jsonData = json_encode($data, JSON_UNESCAPED_UNICODE);
         
-        // Create PowerShell command
-        $powershellCmd = 'powershell.exe -Command "' .
-            '$headers = @{\'Content-Type\' = \'application/json\'}; ' .
-            '$body = \'' . addslashes($jsonData) . '\'; ' .
-            'try { ' .
-            '$response = Invoke-RestMethod -Uri \'' . $url . '\' -Method Post -Body $body -Headers $headers; ' .
-            'Write-Output \"SUCCESS: $($response | ConvertTo-Json -Compress)\"; ' .
-            '} catch { ' .
-            'Write-Output \"ERROR: $($_.Exception.Message)\"; ' .
-            '}"';
+        // Create PowerShell command with proper escaping to prevent injection
+        // Use escapeshellarg for all user-provided data
+        $escapedUrl = escapeshellarg($url);
+        $escapedJsonData = escapeshellarg($jsonData);
+        
+        // Build PowerShell command with proper escaping
+        $powershellCmd = sprintf(
+            'powershell.exe -Command "$headers = @{\'Content-Type\' = \'application/json\'}; $body = %s; try { $response = Invoke-RestMethod -Uri %s -Method Post -Body $body -Headers $headers; Write-Output \"SUCCESS: $($response | ConvertTo-Json -Compress)\"; } catch { Write-Output \"ERROR: $($_.Exception.Message)\"; }"',
+            $escapedJsonData,
+            $escapedUrl
+        );
         
         // Execute the command
         $output = shell_exec($powershellCmd);

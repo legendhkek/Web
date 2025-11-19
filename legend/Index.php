@@ -1,5 +1,9 @@
 <?php
 // Redirect to login page for authentication
+// Ensure no output before header
+if (ob_get_level()) {
+    ob_clean();
+}
 header('Location: login.php');
 exit();
 ?>
