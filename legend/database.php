@@ -181,12 +181,56 @@ class Database {
     }
     
     public function updateUserStats($telegramId, $statsUpdate) {
-        $userStats = $this->getCollection(DatabaseConfig::USER_STATS_COLLECTION);
-        $statsUpdate['updated_at'] = new MongoDB\BSON\UTCDateTime();
-        $userStats->updateOne(
-            ['user_id' => $telegramId],
-            ['$set' => $statsUpdate]
-        );
+        if ($this->useFallback) {
+            $fallback = $this->getFallback();
+            // Fallback expects (telegramId, type, increment) but we have (telegramId, statsUpdate array)
+            // Convert array format to individual updates
+            $stats = $fallback->loadData('user_stats');
+            $found = false;
+            
+            foreach ($stats as &$stat) {
+                if ($stat['user_id'] == $telegramId) {
+                    foreach ($statsUpdate as $key => $value) {
+                        if ($key !== 'updated_at') {
+                            // If value is numeric and field exists, treat as increment, otherwise set directly
+                            if (is_numeric($value) && isset($stat[$key]) && is_numeric($stat[$key])) {
+                                $stat[$key] = ($stat[$key] ?? 0) + $value;
+                            } else {
+                                $stat[$key] = $value;
+                            }
+                        }
+                    }
+                    $stat['updated_at'] = time();
+                    $found = true;
+                    break;
+                }
+            }
+            
+            if ($found) {
+                $fallback->saveData('user_stats', $stats);
+            }
+            return;
+        }
+        
+        try {
+            $userStats = $this->getCollection(DatabaseConfig::USER_STATS_COLLECTION);
+            if (!$userStats) {
+                logError('Failed to get user_stats collection', ['telegram_id' => $telegramId]);
+                return;
+            }
+            
+            $statsUpdate['updated_at'] = new MongoDB\BSON\UTCDateTime();
+            $userStats->updateOne(
+                ['user_id' => $telegramId],
+                ['$set' => $statsUpdate],
+                ['upsert' => true]
+            );
+        } catch (Exception $e) {
+            logError('Error updating user stats: ' . $e->getMessage(), [
+                'telegram_id' => $telegramId,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
     }
     
     public function deductCredits($telegramId, $amount) {

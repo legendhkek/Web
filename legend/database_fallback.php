@@ -20,7 +20,15 @@ class DatabaseFallback {
     }
     
     public function loadData($collection) {
+        // Sanitize collection name to prevent path traversal
+        $collection = basename($collection);
         $file = $this->dataDir . $collection . '.json';
+        // Additional safety check - ensure file is within data directory
+        $realPath = realpath($file);
+        $realDataDir = realpath($this->dataDir);
+        if ($realPath === false || strpos($realPath, $realDataDir) !== 0) {
+            return [];
+        }
         if (!file_exists($file)) {
             return [];
         }
@@ -29,7 +37,15 @@ class DatabaseFallback {
     }
     
     public function saveData($collection, $data) {
+        // Sanitize collection name to prevent path traversal
+        $collection = basename($collection);
         $file = $this->dataDir . $collection . '.json';
+        // Additional safety check - ensure file is within data directory
+        $realDataDir = realpath($this->dataDir);
+        $realPath = realpath(dirname($file));
+        if ($realPath === false || strpos($realPath, $realDataDir) !== 0) {
+            return false;
+        }
         return file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
     }
     

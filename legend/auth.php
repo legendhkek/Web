@@ -140,6 +140,7 @@ class TelegramAuth {
             $_SESSION['role'] = $user['role'];
             $_SESSION['credits'] = $user['credits'];
             $_SESSION['last_login'] = time();
+            $_SESSION['login_time'] = time(); // Set login time for timeout checking
             
             // Send notifications
             if ($isNewUser && SiteConfig::get('notify_register', true)) {

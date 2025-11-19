@@ -4,8 +4,8 @@ require_once 'config.php';
 // Debug Telegram bot configuration
 echo "<h2>Telegram Bot Debug Information</h2>";
 echo "<p><strong>Bot Name:</strong> " . TelegramConfig::BOT_NAME . "</p>";
-echo "<p><strong>Current Domain:</strong> https://" . $_SERVER['HTTP_HOST'] . "</p>";
-echo "<p><strong>Auth URL:</strong> https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'] . "</p>";
+echo "<p><strong>Current Domain:</strong> https://" . htmlspecialchars($_SERVER['HTTP_HOST'] ?? '', ENT_QUOTES, 'UTF-8') . "</p>";
+echo "<p><strong>Auth URL:</strong> https://" . htmlspecialchars(($_SERVER['HTTP_HOST'] ?? '') . ($_SERVER['REQUEST_URI'] ?? ''), ENT_QUOTES, 'UTF-8') . "</p>";
 
 // Test bot API
 $botToken = '7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU';
@@ -40,7 +40,7 @@ echo "<ol>";
 echo "<li>Go to <a href='https://t.me/BotFather' target='_blank'>@BotFather</a> on Telegram</li>";
 echo "<li>Send <code>/setdomain</code></li>";
 echo "<li>Select your bot: <strong>" . TelegramConfig::BOT_NAME . "</strong></li>";
-echo "<li>Set domain to: <strong>https://" . $_SERVER['HTTP_HOST'] . "</strong></li>";
+echo "<li>Set domain to: <strong>https://" . htmlspecialchars($_SERVER['HTTP_HOST'] ?? '', ENT_QUOTES, 'UTF-8') . "</strong></li>";
 echo "</ol>";
 
 echo "<h3>Alternative: Manual Widget Test</h3>";
@@ -48,7 +48,7 @@ echo "<div style='margin: 20px 0;'>";
 echo "<script async src='https://telegram.org/js/telegram-widget.js?22' ";
 echo "data-telegram-login='" . TelegramConfig::BOT_NAME . "' ";
 echo "data-size='large' ";
-echo "data-auth-url='https://" . $_SERVER['HTTP_HOST'] . "/web/login.php' ";
+echo "data-auth-url='https://" . htmlspecialchars($_SERVER['HTTP_HOST'] ?? '', ENT_QUOTES, 'UTF-8') . "/web/login.php' ";
 echo "data-request-access='write'>";
 echo "</script>";
 echo "</div>";

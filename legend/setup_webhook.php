@@ -341,7 +341,7 @@ $owner_id = 5652614329; // @LEGEND_BL
             <a href="check_extensions.php" class="btn">
                 <span class="icon">🔧</span> Check Extensions
             </a>
-            <a href="<?php echo $_SERVER['PHP_SELF']; ?>" class="btn">
+            <a href="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="btn">
                 <span class="icon">🔄</span> Refresh Status
             </a>
         </div>
