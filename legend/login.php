@@ -401,6 +401,19 @@ if (isset($_GET['id']) && isset($_GET['hash'])) {
                 <i class="fas fa-exclamation-triangle"></i>
                 <?php echo htmlspecialchars($error); ?>
             </div>
+            <?php if (strpos($error, 'Invalid') !== false || strpos($error, 'Authentication') !== false): ?>
+            <div class="security-notice" style="margin-top: 16px; background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3);">
+                <i class="fas fa-info-circle"></i>
+                <strong>Troubleshooting Tips:</strong>
+                <ul style="margin: 12px 0 0 20px; text-align: left; font-size: 13px; line-height: 1.8;">
+                    <li>Make sure you're clicking the Telegram button above to log in</li>
+                    <li>Try clearing your browser cache and cookies</li>
+                    <li>If using an older session, wait a few seconds and try again</li>
+                    <li>Ensure your Telegram app is up to date</li>
+                    <li>Try logging in from a different browser</li>
+                </ul>
+            </div>
+            <?php endif; ?>
         <?php endif; ?>
 
         <div class="login-form">
