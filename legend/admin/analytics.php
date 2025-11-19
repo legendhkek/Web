@@ -43,7 +43,22 @@ $system_stats = [
                             <strong>Role:</strong> <?php echo getRoleBadge($current_user['role'] ?? 'admin'); ?>
                         </div>
                         <div class="me-3">
-                            <strong>Last Login:</strong> <?php echo date('M j, Y g:i A', $current_user['last_login'] ?? time()); ?>
+                            <strong>Last Login:</strong> 
+                            <?php 
+                            $lastLogin = $current_user['last_login_at'] ?? $current_user['last_login'] ?? null;
+                            if ($lastLogin) {
+                                // Handle MongoDB UTCDateTime objects
+                                if (is_object($lastLogin) && method_exists($lastLogin, 'toDateTime')) {
+                                    echo $lastLogin->toDateTime()->format('M j, Y g:i A');
+                                } elseif (is_numeric($lastLogin)) {
+                                    echo date('M j, Y g:i A', $lastLogin);
+                                } else {
+                                    echo 'Never';
+                                }
+                            } else {
+                                echo 'Never';
+                            }
+                            ?>
                         </div>
                     </div>
                 </div>

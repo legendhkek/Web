@@ -178,6 +178,10 @@ class StripeAuthChecker {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($ch, CURLOPT_USERAGENT, $this->currentUserAgent);
         
         // Set headers
         $defaultHeaders = [
@@ -224,12 +228,25 @@ class StripeAuthChecker {
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        $body = substr($response, $headerSize);
+        $curlError = curl_error($ch);
+        
+        if ($curlError) {
+            $this->log("cURL Error: $curlError", "ERROR");
+        }
         
         curl_close($ch);
         
+        if ($response === false) {
+            if ($returnInfo) {
+                return ['code' => 0, 'body' => '', 'error' => $curlError];
+            }
+            return '';
+        }
+        
+        $body = substr($response, $headerSize);
+        
         if ($returnInfo) {
-            return ['code' => $httpCode, 'body' => $body];
+            return ['code' => $httpCode, 'body' => $body, 'error' => $curlError ?: null];
         }
         
         return $body;
@@ -246,6 +263,11 @@ class StripeAuthChecker {
             
             $result = $this->makeRequest($url, 'GET', null, [], true);
             $this->sessionPages++;
+            
+            if (isset($result['error']) && $result['error']) {
+                $this->log("Failed to load account page. Error: " . $result['error'], "ERROR");
+                return [false, ""];
+            }
             
             if ($result['code'] != 200) {
                 $this->log("Failed to load account page. Status: " . $result['code'], "ERROR");
@@ -362,6 +384,11 @@ class StripeAuthChecker {
             
             $result = $this->makeRequest($url, 'GET', null, [], true);
             $this->sessionPages++;
+            
+            if (isset($result['error']) && $result['error']) {
+                $this->log("Failed to load payment method page. Error: " . $result['error'], "ERROR");
+                return [false, ""];
+            }
             
             if ($result['code'] != 200) {
                 $this->log("Failed to load payment method page. Status: " . $result['code'], "ERROR");

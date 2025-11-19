@@ -115,6 +115,13 @@ function isOwner() {
 }
 
 /**
+ * Require admin access or redirect
+ */
+function requireAdminAuth() {
+    return checkAdminAccess(false);
+}
+
+/**
  * Require owner access or redirect
  */
 function requireOwner() {

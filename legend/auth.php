@@ -335,5 +335,31 @@ class TelegramAuth {
         $_SESSION[$key][] = $now;
         return true;
     }
+    
+    /**
+     * Require authentication or redirect to login
+     * @return int Telegram user ID
+     */
+    public static function requireAuth() {
+        initSecureSession();
+        
+        // Check if user is logged in
+        if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
+            header('Location: login.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
+            exit();
+        }
+        
+        // Check session timeout
+        if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > AppConfig::SESSION_TIMEOUT) {
+            session_destroy();
+            header('Location: login.php?timeout=1');
+            exit();
+        }
+        
+        // Update last activity
+        $_SESSION['last_activity'] = time();
+        
+        return $_SESSION['user_id'];
+    }
 }
 ?>

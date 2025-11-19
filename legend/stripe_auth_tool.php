@@ -285,10 +285,26 @@ function getNextSite() {
     $configFile = __DIR__ . '/data/stripe_auth_sites.json';
     
     if (!file_exists($configFile)) {
+        // Initialize default config
+        $defaultConfig = [
+            'sites' => [],
+            'rotation_count' => 20,
+            'current_index' => 0,
+            'request_count' => 0
+        ];
+        $dir = dirname($configFile);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        file_put_contents($configFile, json_encode($defaultConfig, JSON_PRETTY_PRINT));
         return null;
     }
     
     $config = json_decode(file_get_contents($configFile), true);
+    if (!is_array($config)) {
+        return null;
+    }
+    
     $sites = $config['sites'] ?? [];
     
     if (empty($sites)) {
@@ -334,7 +350,14 @@ function maskCardForDisplay(string $cardLine): string {
 
 // Get current site info for display
 $configFile = __DIR__ . '/data/stripe_auth_sites.json';
-$siteConfig = json_decode(file_get_contents($configFile), true);
+if (file_exists($configFile)) {
+    $siteConfig = json_decode(file_get_contents($configFile), true);
+    if (!is_array($siteConfig)) {
+        $siteConfig = ['sites' => [], 'rotation_count' => 20, 'current_index' => 0, 'request_count' => 0];
+    }
+} else {
+    $siteConfig = ['sites' => [], 'rotation_count' => 20, 'current_index' => 0, 'request_count' => 0];
+}
 $totalSites = count($siteConfig['sites'] ?? []);
 $currentSiteIndex = ($siteConfig['current_index'] ?? 0) + 1;
 $requestsUntilRotation = ($siteConfig['rotation_count'] ?? 20) - ($siteConfig['request_count'] ?? 0);

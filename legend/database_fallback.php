@@ -122,6 +122,34 @@ class DatabaseFallback {
         $this->saveData('users', $users);
     }
 
+    /**
+     * Generic method to update user fields
+     * @param int $telegramId
+     * @param array $updates Array of field => value pairs to update
+     * @return bool Success status
+     */
+    public function updateUser($telegramId, $updates) {
+        $users = $this->loadData('users');
+        $updated = false;
+        
+        foreach ($users as &$user) {
+            if ($user['telegram_id'] == $telegramId) {
+                foreach ($updates as $key => $value) {
+                    $user[$key] = $value;
+                }
+                $user['updated_at'] = time();
+                $updated = true;
+                break;
+            }
+        }
+        
+        if ($updated) {
+            $this->saveData('users', $users);
+            return true;
+        }
+        return false;
+    }
+
     // This duplicate method was removed to fix the 'Cannot redeclare DatabaseFallback::updateUserRole()' error
 
     public function updateUserLastLogin($telegramId) {
@@ -149,11 +177,19 @@ class DatabaseFallback {
         $this->saveData('audit_logs', $auditLogs);
     }
 
-    public function getAuditLogs($limit = 50, $offset = 0) {
+    public function getAuditLogs($limit = 50, $offset = 0, $targetId = null) {
         $auditLogs = $this->loadData('audit_logs');
+        
+        // Filter by target_id if provided
+        if ($targetId !== null) {
+            $auditLogs = array_filter($auditLogs, function($log) use ($targetId) {
+                return isset($log['target_id']) && $log['target_id'] == $targetId;
+            });
+        }
+        
         // Sort by timestamp descending
         usort($auditLogs, function($a, $b) {
-            return $b['timestamp'] - $a['timestamp'];
+            return ($b['timestamp'] ?? 0) - ($a['timestamp'] ?? 0);
         });
         return array_slice($auditLogs, $offset, $limit);
     }
@@ -225,6 +261,19 @@ class DatabaseFallback {
         return true;
     }
     
+    public function updateUserCredits($telegramId, $newCredits) {
+        $users = $this->loadData('users');
+        foreach ($users as &$user) {
+            if ($user['telegram_id'] == $telegramId) {
+                $user['credits'] = (int)$newCredits;
+                $user['updated_at'] = time();
+                $this->saveData('users', $users);
+                return true;
+            }
+        }
+        return false;
+    }
+
     public function deductCredits($telegramId, $amount) {
         $users = $this->loadData('users');
         foreach ($users as &$user) {

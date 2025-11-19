@@ -159,6 +159,32 @@ class Database {
         return $result->getModifiedCount() > 0;
     }
 
+    /**
+     * Generic method to update user fields
+     * @param int $telegramId
+     * @param array $updates Array of field => value pairs to update
+     * @return bool Success status
+     */
+    public function updateUser($telegramId, $updates) {
+        if ($this->useFallback) {
+            return $this->getFallback()->updateUser($telegramId, $updates);
+        }
+
+        $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+        if (!$users) {
+            return false;
+        }
+
+        // Ensure updated_at is always set
+        $updates['updated_at'] = new MongoDB\BSON\UTCDateTime();
+        
+        $result = $users->updateOne(
+            ['telegram_id' => (int)$telegramId],
+            ['$set' => $updates]
+        );
+        return $result->getModifiedCount() > 0;
+    }
+
     public function updateUserLastLogin($telegramId) {
         if ($this->useFallback) {
             return $this->getFallback()->updateUserLastLogin($telegramId);
@@ -220,6 +246,36 @@ class Database {
         }
     }
     
+    public function updateUserCredits($telegramId, $newCredits) {
+        if ($this->useFallback) {
+            return $this->getFallback()->updateUserCredits($telegramId, $newCredits);
+        }
+        
+        try {
+            $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+            if (!$users) {
+                logError('Failed to get users collection for updating credits', ['telegram_id' => $telegramId]);
+                return false;
+            }
+            
+            $result = $users->updateOne(
+                ['telegram_id' => (int)$telegramId],
+                ['$set' => [
+                    'credits' => (int)$newCredits,
+                    'updated_at' => new MongoDB\BSON\UTCDateTime()
+                ]]
+            );
+            
+            return $result->getModifiedCount() > 0;
+        } catch (Exception $e) {
+            logError('Error updating user credits: ' . $e->getMessage(), [
+                'telegram_id' => $telegramId,
+                'new_credits' => $newCredits
+            ]);
+            return false;
+        }
+    }
+
     public function addCredits($telegramId, $amount) {
         if ($this->useFallback) {
             $users = $this->getFallback()->loadData('users');
@@ -460,13 +516,18 @@ class Database {
         ]);
     }
 
-    public function getAuditLogs($limit = 50, $offset = 0) {
+    public function getAuditLogs($limit = 50, $offset = 0, $targetId = null) {
         if ($this->useFallback) {
-            return $this->getFallback()->getAuditLogs($limit, $offset);
+            return $this->getFallback()->getAuditLogs($limit, $offset, $targetId);
         }
 
         $auditLog = $this->getCollection('audit_logs');
-        return $auditLog->find([], [
+        $query = [];
+        if ($targetId !== null) {
+            $query['target_id'] = $targetId;
+        }
+        
+        return $auditLog->find($query, [
             'limit' => $limit, 
             'skip' => $offset, 
             'sort' => ['timestamp' => -1]
