@@ -128,14 +128,12 @@ function initSecureSession() {
     // Only configure session settings if no session is active
     if (session_status() === PHP_SESSION_NONE) {
         // Enhanced session security with error suppression
-        if (session_status() === PHP_SESSION_NONE) {
-            @ini_set('session.cookie_httponly', 1);
-            @ini_set('session.cookie_secure', 0); // Set to 0 for ngrok HTTP support
-            @ini_set('session.cookie_samesite', 'Lax');
-            @ini_set('session.use_strict_mode', 1);
-            @ini_set('session.cookie_lifetime', 86400); // 24 hours for persistence
-            @ini_set('session.gc_maxlifetime', 86400);
-        }
+        @ini_set('session.cookie_httponly', 1);
+        @ini_set('session.cookie_secure', 0); // Set to 0 for ngrok HTTP support
+        @ini_set('session.cookie_samesite', 'Lax');
+        @ini_set('session.use_strict_mode', 1);
+        @ini_set('session.cookie_lifetime', 86400); // 24 hours for persistence
+        @ini_set('session.gc_maxlifetime', 86400);
         ini_set('session.gc_maxlifetime', AppConfig::SESSION_TIMEOUT);
         
         session_start();

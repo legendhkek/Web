@@ -181,6 +181,10 @@ class Database {
     }
     
     public function updateUserStats($telegramId, $statsUpdate) {
+        if ($this->useFallback) {
+            return $this->getFallback()->updateUserStats($telegramId, $statsUpdate);
+        }
+        
         $userStats = $this->getCollection(DatabaseConfig::USER_STATS_COLLECTION);
         $statsUpdate['updated_at'] = new MongoDB\BSON\UTCDateTime();
         $userStats->updateOne(
@@ -337,7 +341,29 @@ class Database {
             ['$sort' => ['last_seen_at' => -1]]
         ];
         
-        return $presence->aggregate($pipeline)->toArray();
+        $results = $presence->aggregate($pipeline)->toArray();
+        
+        // Normalize the data structure to match fallback format
+        $normalized = [];
+        foreach ($results as $result) {
+            $user = $result['user'] ?? [];
+            $lastSeenAt = $result['last_seen_at'] ?? null;
+            
+            // Convert MongoDB UTCDateTime to Unix timestamp
+            $lastSeen = time();
+            if ($lastSeenAt instanceof MongoDB\BSON\UTCDateTime) {
+                $lastSeen = $lastSeenAt->toDateTime()->getTimestamp();
+            } elseif (is_numeric($lastSeenAt)) {
+                $lastSeen = $lastSeenAt;
+            }
+            
+            $normalized[] = array_merge($user, [
+                'last_seen' => $lastSeen,
+                'last_seen_at' => $lastSeenAt
+            ]);
+        }
+        
+        return $normalized;
     }
     
     // Leaderboard

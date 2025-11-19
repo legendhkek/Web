@@ -263,15 +263,39 @@ class DatabaseFallback {
         return ['total_hits' => 0, 'total_charge_cards' => 0, 'total_live_cards' => 0];
     }
     
-    public function updateUserStats($telegramId, $type, $increment = 1) {
+    public function updateUserStats($telegramId, $statsUpdate) {
+        // Support both old signature (type, increment) and new signature (array)
+        if (!is_array($statsUpdate)) {
+            // Legacy signature: ($telegramId, $type, $increment = 1)
+            $type = $statsUpdate;
+            $increment = func_num_args() > 2 ? func_get_arg(2) : 1;
+            $statsUpdate = [$type => $increment];
+        }
+        
         $stats = $this->loadData('user_stats');
+        $found = false;
+        
         foreach ($stats as &$stat) {
             if ($stat['user_id'] == $telegramId) {
-                $stat[$type] += $increment;
+                foreach ($statsUpdate as $key => $value) {
+                    if ($key === 'updated_at') {
+                        continue; // Skip updated_at, we'll set it below
+                    }
+                    // If value is numeric, treat as increment; otherwise, set directly
+                    if (is_numeric($value) && isset($stat[$key])) {
+                        $stat[$key] = ($stat[$key] ?? 0) + $value;
+                    } else {
+                        $stat[$key] = $value;
+                    }
+                }
                 $stat['updated_at'] = time();
-                $this->saveData('user_stats', $stats);
-                return;
+                $found = true;
+                break;
             }
+        }
+        
+        if ($found) {
+            $this->saveData('user_stats', $stats);
         }
     }
     
