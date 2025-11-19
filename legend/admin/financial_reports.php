@@ -2,8 +2,8 @@
 require_once 'admin_header.php';
 
 // Get date range from query params
-$start_date = $_GET['start_date'] ?? date('Y-m-01'); // First day of current month
-$end_date = $_GET['end_date'] ?? date('Y-m-d'); // Today
+$start_date = isset($_GET['start_date']) ? sanitizeInput($_GET['start_date'], 'string') : date('Y-m-01'); // First day of current month
+$end_date = isset($_GET['end_date']) ? sanitizeInput($_GET['end_date'], 'string') : date('Y-m-d'); // Today
 
 // Mock financial data (in real implementation, this would come from payment processor)
 $financial_data = [

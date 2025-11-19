@@ -149,8 +149,16 @@ class DatabaseFallback {
         $this->saveData('audit_logs', $auditLogs);
     }
 
-    public function getAuditLogs($limit = 50, $offset = 0) {
+    public function getAuditLogs($limit = 50, $offset = 0, $targetId = null) {
         $auditLogs = $this->loadData('audit_logs');
+        
+        // Filter by target_id if provided
+        if ($targetId !== null) {
+            $auditLogs = array_filter($auditLogs, function($log) use ($targetId) {
+                return isset($log['target_id']) && $log['target_id'] == $targetId;
+            });
+        }
+        
         // Sort by timestamp descending
         usort($auditLogs, function($a, $b) {
             return $b['timestamp'] - $a['timestamp'];
@@ -236,6 +244,19 @@ class DatabaseFallback {
                     return true;
                 }
                 return false;
+            }
+        }
+        return false;
+    }
+    
+    public function updateUserCredits($telegramId, $newCredits) {
+        $users = $this->loadData('users');
+        foreach ($users as &$user) {
+            if ($user['telegram_id'] == $telegramId) {
+                $user['credits'] = (int)$newCredits;
+                $user['updated_at'] = time();
+                $this->saveData('users', $users);
+                return true;
             }
         }
         return false;

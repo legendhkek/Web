@@ -254,6 +254,43 @@ class Database {
         }
     }
     
+    public function updateUserCredits($telegramId, $newCredits) {
+        if ($this->useFallback) {
+            $users = $this->getFallback()->loadData('users');
+            foreach ($users as &$user) {
+                if ($user['telegram_id'] == $telegramId) {
+                    $user['credits'] = (int)$newCredits;
+                    $user['updated_at'] = time();
+                    break;
+                }
+            }
+            $this->getFallback()->saveData('users', $users);
+            return true;
+        }
+        
+        try {
+            $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+            if (!$users) {
+                logError('Failed to get users collection for updating credits', ['telegram_id' => $telegramId]);
+                return false;
+            }
+            
+            $result = $users->updateOne(
+                ['telegram_id' => (int)$telegramId],
+                ['$set' => ['credits' => (int)$newCredits, 'updated_at' => new MongoDB\BSON\UTCDateTime()]]
+            );
+            
+            return $result->getModifiedCount() > 0;
+        } catch (Exception $e) {
+            logError('Error updating user credits: ' . $e->getMessage(), [
+                'telegram_id' => $telegramId,
+                'new_credits' => $newCredits,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+    
     // Daily credit claim
     public function canClaimDailyCredits($telegramId) {
         if ($this->useFallback) {
@@ -457,13 +494,17 @@ class Database {
         ]);
     }
 
-    public function getAuditLogs($limit = 50, $offset = 0) {
+    public function getAuditLogs($limit = 50, $offset = 0, $targetId = null) {
         if ($this->useFallback) {
-            return $this->getFallback()->getAuditLogs($limit, $offset);
+            return $this->getFallback()->getAuditLogs($limit, $offset, $targetId);
         }
 
         $auditLog = $this->getCollection('audit_logs');
-        return $auditLog->find([], [
+        $query = [];
+        if ($targetId !== null) {
+            $query['target_id'] = $targetId;
+        }
+        return $auditLog->find($query, [
             'limit' => $limit, 
             'skip' => $offset, 
             'sort' => ['timestamp' => -1]

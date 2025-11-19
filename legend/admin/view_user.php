@@ -7,7 +7,7 @@ if (!isset($_GET['id'])) {
     exit;
 }
 
-$user_id = $_GET['id'];
+$user_id = sanitizeInput($_GET['id'], 'string');
 $user = $db->getUserById($user_id);
 
 if (!$user) {

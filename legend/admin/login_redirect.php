@@ -20,8 +20,8 @@ if (!empty($_SESSION['user_id']) || !empty($_SESSION['telegram_id'])) {
 }
 
 // Get error message if any
-$error = $_GET['error'] ?? '';
-$redirect = $_GET['redirect'] ?? 'admin';
+$error = isset($_GET['error']) ? sanitizeInput($_GET['error'], 'string') : '';
+$redirect = isset($_GET['redirect']) ? sanitizeInput($_GET['redirect'], 'string') : 'admin';
 
 // Get database instance
 $db = Database::getInstance();

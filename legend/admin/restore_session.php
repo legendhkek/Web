@@ -17,8 +17,8 @@ $db = Database::getInstance();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $telegram_id = trim($_POST['telegram_id'] ?? '');
-    $action = $_POST['action'] ?? '';
+    $telegram_id = isset($_POST['telegram_id']) ? trim(sanitizeInput($_POST['telegram_id'], 'string')) : '';
+    $action = isset($_POST['action']) ? sanitizeInput($_POST['action'], 'string') : '';
     
     if ($action === 'restore' && !empty($telegram_id)) {
         // Check if this Telegram ID exists in config

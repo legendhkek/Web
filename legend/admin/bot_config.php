@@ -4,12 +4,12 @@ require_once 'admin_header.php';
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $botConfig = [
-        'welcome_message' => $_POST['welcome_message'],
-        'daily_credit_message' => $_POST['daily_credit_message'],
-        'insufficient_credits_message' => $_POST['insufficient_credits_message'],
-        'banned_user_message' => $_POST['banned_user_message'],
-        'maintenance_message' => $_POST['maintenance_message'],
-        'help_message' => $_POST['help_message']
+        'welcome_message' => isset($_POST['welcome_message']) ? sanitizeInput($_POST['welcome_message'], 'string') : '',
+        'daily_credit_message' => isset($_POST['daily_credit_message']) ? sanitizeInput($_POST['daily_credit_message'], 'string') : '',
+        'insufficient_credits_message' => isset($_POST['insufficient_credits_message']) ? sanitizeInput($_POST['insufficient_credits_message'], 'string') : '',
+        'banned_user_message' => isset($_POST['banned_user_message']) ? sanitizeInput($_POST['banned_user_message'], 'string') : '',
+        'maintenance_message' => isset($_POST['maintenance_message']) ? sanitizeInput($_POST['maintenance_message'], 'string') : '',
+        'help_message' => isset($_POST['help_message']) ? sanitizeInput($_POST['help_message'], 'string') : ''
     ];
 
     if (SiteConfig::save($botConfig)) {

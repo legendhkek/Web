@@ -3,14 +3,14 @@ require_once 'admin_header.php';
 require_once 'admin_utils.php';
 
 // Search and filter parameters
-$search = $_GET['search'] ?? '';
-$role_filter = $_GET['role'] ?? '';
-$status_filter = $_GET['status'] ?? '';
-$sort_by = $_GET['sort'] ?? 'created_at';
-$sort_order = $_GET['order'] ?? 'desc';
+$search = isset($_GET['search']) ? sanitizeInput($_GET['search'], 'string') : '';
+$role_filter = isset($_GET['role']) ? sanitizeInput($_GET['role'], 'string') : '';
+$status_filter = isset($_GET['status']) ? sanitizeInput($_GET['status'], 'string') : '';
+$sort_by = isset($_GET['sort']) ? sanitizeInput($_GET['sort'], 'string') : 'created_at';
+$sort_order = isset($_GET['order']) ? sanitizeInput($_GET['order'], 'string') : 'desc';
 
 // Pagination
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$page = isset($_GET['page']) ? max(1, (int)filter_var($_GET['page'], FILTER_SANITIZE_NUMBER_INT)) : 1;
 $limit = 25;
 $offset = ($page - 1) * $limit;
 

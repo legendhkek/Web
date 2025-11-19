@@ -2,7 +2,7 @@
 require_once 'admin_header.php';
 
 // Get user ID from URL
-$user_id = $_GET['id'] ?? null;
+$user_id = isset($_GET['id']) ? sanitizeInput($_GET['id'], 'string') : null;
 if (!$user_id) {
     header('Location: user_management.php');
     exit;
@@ -17,8 +17,8 @@ if (!$user) {
 
 // Handle role change
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_role'])) {
-    $new_role = $_POST['new_role'];
-    $reason = $_POST['reason'] ?? '';
+    $new_role = sanitizeInput($_POST['new_role'], 'string');
+    $reason = isset($_POST['reason']) ? sanitizeInput($_POST['reason'], 'string') : '';
     
     // Validate role
     $valid_roles = ['free', 'premium', 'vip', 'admin', 'owner'];

@@ -12,7 +12,7 @@ require_once '../owner_logger.php';
 // Get current user for display
 $current_user = getCurrentUser();
 
-$user_id = $_GET['id'];
+$user_id = sanitizeInput($_GET['id'], 'string');
 $user = $db->getUserByTelegramId($user_id);
 
 if (!$user) {
@@ -22,8 +22,8 @@ if (!$user) {
 
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $amount = (int)$_POST['amount'];
-    $action = $_POST['action'];
+    $amount = isset($_POST['amount']) ? max(0, (int)filter_var($_POST['amount'], FILTER_SANITIZE_NUMBER_INT)) : 0;
+    $action = isset($_POST['action']) ? sanitizeInput($_POST['action'], 'string') : '';
 
     if ($action === 'add') {
         $db->addCredits($user_id, $amount);

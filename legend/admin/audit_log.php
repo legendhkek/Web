@@ -2,7 +2,7 @@
 require_once 'admin_header.php';
 
 // Pagination
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$page = isset($_GET['page']) ? max(1, (int)filter_var($_GET['page'], FILTER_SANITIZE_NUMBER_INT)) : 1;
 $limit = 25;
 $offset = ($page - 1) * $limit;
 

@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // Get recent errors
-$limit = isset($_GET['limit']) ? intval($_GET['limit']) : 100;
+$limit = isset($_GET['limit']) ? max(1, (int)filter_var($_GET['limit'], FILTER_SANITIZE_NUMBER_INT)) : 100;
 $recent_errors = ErrorHandler::getRecentErrors($limit);
 
 // Parse errors for better display

@@ -7,8 +7,8 @@ if (!isset($_GET['id']) || !isset($_GET['action'])) {
     exit;
 }
 
-$user_id = $_GET['id'];
-$action = $_GET['action'];
+$user_id = sanitizeInput($_GET['id'], 'string');
+$action = sanitizeInput($_GET['action'], 'string');
 
 switch ($action) {
     case 'ban':

@@ -29,7 +29,7 @@ if (isset($_POST['create_backup'])) {
 
 // Handle backup download
 if (isset($_GET['download'])) {
-    $filename = basename($_GET['download']);
+    $filename = basename(sanitizeInput($_GET['download'], 'string'));
     $filepath = __DIR__ . '/../data/backups/' . $filename;
     
     if (file_exists($filepath) && strpos($filename, 'backup_') === 0) {
