@@ -13,12 +13,13 @@ $action = $_GET['action'];
 switch ($action) {
     case 'ban':
         $db->updateUserStatus($user_id, 'banned');
-        $db->logAuditAction($_SESSION['user_id'], 'user_banned', $user_id, ['reason' => 'Admin action']);
+        $admin_telegram_id = $_SESSION['telegram_id'] ?? $_SESSION['user_id'];
+        $db->logAuditAction($admin_telegram_id, 'user_banned', $user_id, ['reason' => 'Admin action']);
         
         // Owner notification
         try {
             $ownerLogger = new OwnerLogger();
-            $admin_user = $db->getUserByTelegramId($_SESSION['user_id']);
+            $admin_user = $db->getUserByTelegramId($admin_telegram_id);
             $target_user = $db->getUserByTelegramId($user_id);
             $ownerLogger->sendAdminAlert(
                 $admin_user,
@@ -31,12 +32,13 @@ switch ($action) {
         break;
     case 'unban':
         $db->updateUserStatus($user_id, 'active');
-        $db->logAuditAction($_SESSION['user_id'], 'user_unbanned', $user_id, ['reason' => 'Admin action']);
+        $admin_telegram_id = $_SESSION['telegram_id'] ?? $_SESSION['user_id'];
+        $db->logAuditAction($admin_telegram_id, 'user_unbanned', $user_id, ['reason' => 'Admin action']);
         
         // Owner notification
         try {
             $ownerLogger = new OwnerLogger();
-            $admin_user = $db->getUserByTelegramId($_SESSION['user_id']);
+            $admin_user = $db->getUserByTelegramId($admin_telegram_id);
             $target_user = $db->getUserByTelegramId($user_id);
             $ownerLogger->sendAdminAlert(
                 $admin_user,

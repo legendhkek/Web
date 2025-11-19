@@ -121,6 +121,19 @@ class DatabaseFallback {
         }
         $this->saveData('users', $users);
     }
+    
+    public function updateUserCredits($telegramId, $newCredits) {
+        $users = $this->loadData('users');
+        foreach ($users as &$user) {
+            if ($user['telegram_id'] == $telegramId) {
+                $user['credits'] = (int)$newCredits;
+                $user['updated_at'] = time();
+                break;
+            }
+        }
+        $this->saveData('users', $users);
+        return true;
+    }
 
     // This duplicate method was removed to fix the 'Cannot redeclare DatabaseFallback::updateUserRole()' error
 

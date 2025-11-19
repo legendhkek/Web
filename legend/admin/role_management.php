@@ -7,9 +7,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_role'])) {
     $new_role = $_POST['new_role'];
     
     if ($db->updateUserRole($user_id, $new_role)) {
-        $db->logAuditAction($_SESSION['user_id'], 'role_changed', $user_id, [
+        $admin_telegram_id = $_SESSION['telegram_id'] ?? $_SESSION['user_id'];
+        $db->logAuditAction($admin_telegram_id, 'role_changed', $user_id, [
             'new_role' => $new_role,
-            'changed_by' => $_SESSION['user_id']
+            'changed_by' => $admin_telegram_id
         ]);
         $successMessage = "User role updated successfully!";
     } else {

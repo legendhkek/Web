@@ -1554,8 +1554,8 @@ function handleBan($parts, $chat_id, $user_id) {
         return;
     }
     
-    if (method_exists($db, 'updateUser')) {
-        $result = $db->updateUser($target_id, ['status' => 'banned']);
+    if (method_exists($db, 'updateUserStatus')) {
+        $result = $db->updateUserStatus($target_id, 'banned');
         if ($result) {
             sendMessage($target_id, "🚫 <b>Your account has been suspended.</b>");
             sendMessage($chat_id, "✅ User {$target_id} has been banned.");
@@ -1577,8 +1577,8 @@ function handleUnban($parts, $chat_id, $user_id) {
     
     $target_id = intval($parts[1]);
     
-    if (method_exists($db, 'updateUser')) {
-        $result = $db->updateUser($target_id, ['status' => 'active']);
+    if (method_exists($db, 'updateUserStatus')) {
+        $result = $db->updateUserStatus($target_id, 'active');
         if ($result) {
             sendMessage($target_id, "✅ <b>Your account has been reactivated!</b>");
             sendMessage($chat_id, "✅ User {$target_id} has been unbanned.");

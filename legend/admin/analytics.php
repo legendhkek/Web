@@ -4,6 +4,11 @@ require_once 'admin_header.php';
 // Get current user for display
 $current_user = getCurrentUser();
 
+// Ensure database instance is available
+if (!isset($db)) {
+    $db = Database::getInstance();
+}
+
 // Fetch analytics data
 $total_users = $db->getTotalUsersCount();
 $total_credits_claimed = $db->getTotalCreditsClaimed();

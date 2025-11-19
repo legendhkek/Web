@@ -257,6 +257,43 @@ class Database {
         }
     }
     
+    public function updateUserCredits($telegramId, $newCredits) {
+        if ($this->useFallback) {
+            $users = $this->getFallback()->loadData('users');
+            foreach ($users as &$user) {
+                if ($user['telegram_id'] == $telegramId) {
+                    $user['credits'] = (int)$newCredits;
+                    $user['updated_at'] = time();
+                    break;
+                }
+            }
+            $this->getFallback()->saveData('users', $users);
+            return true;
+        }
+        
+        try {
+            $users = $this->getCollection(DatabaseConfig::USERS_COLLECTION);
+            if (!$users) {
+                logError('Failed to get users collection for updating credits', ['telegram_id' => $telegramId]);
+                return false;
+            }
+            
+            $result = $users->updateOne(
+                ['telegram_id' => (int)$telegramId],
+                ['$set' => ['credits' => (int)$newCredits, 'updated_at' => new MongoDB\BSON\UTCDateTime()]]
+            );
+            
+            return $result->getModifiedCount() > 0;
+        } catch (Exception $e) {
+            logError('Error updating credits: ' . $e->getMessage(), [
+                'telegram_id' => $telegramId,
+                'new_credits' => $newCredits,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+    
     // Daily credit claim
     public function canClaimDailyCredits($telegramId) {
         if ($this->useFallback) {

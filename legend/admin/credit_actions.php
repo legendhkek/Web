@@ -32,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Owner notification
         try {
             $ownerLogger = new OwnerLogger();
-            $admin_user = $db->getUserByTelegramId($_SESSION['user_id']);
+            $admin_telegram_id = $_SESSION['telegram_id'] ?? $_SESSION['user_id'];
+            $admin_user = $db->getUserByTelegramId($admin_telegram_id);
             $ownerLogger->sendAdminAlert(
                 $admin_user,
                 'Credits Added',
@@ -49,7 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             if ($db->updateUserCredits($user_id, $new_credits)) {
                 // Log the audit action
-                $db->logAuditAction($_SESSION['user_id'], 'credit_adjusted', $user_id, [
+                $admin_telegram_id = $_SESSION['telegram_id'] ?? $_SESSION['user_id'];
+                $db->logAuditAction($admin_telegram_id, 'credit_adjusted', $user_id, [
                     'action' => $action,
                     'amount' => $amount,
                     'old_credits' => $current_credits,
@@ -60,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Owner notification
                 try {
                     $ownerLogger = new OwnerLogger();
-                    $admin_user = $db->getUserByTelegramId($_SESSION['user_id']);
+                    $admin_user = $db->getUserByTelegramId($admin_telegram_id);
                     $ownerLogger->sendAdminAlert(
                         $admin_user,
                         'Credits Removed',

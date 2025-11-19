@@ -100,7 +100,7 @@ class AdminManager {
             }
             
             // Update user role in users collection
-            $this->db->updateUser($telegram_id, ['role' => AppConfig::ROLE_ADMIN]);
+            $this->db->updateUserRole($telegram_id, AppConfig::ROLE_ADMIN);
             
             return [
                 'success' => true,
@@ -144,7 +144,7 @@ class AdminManager {
             }
             
             // Update user role back to free
-            $this->db->updateUser($telegram_id, ['role' => AppConfig::ROLE_FREE]);
+            $this->db->updateUserRole($telegram_id, AppConfig::ROLE_FREE);
             
             return ['success' => true, 'message' => 'Admin removed successfully'];
         } catch (Exception $e) {
