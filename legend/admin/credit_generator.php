@@ -1,12 +1,8 @@
 <?php
 require_once 'admin_header.php';
 require_once 'admin_utils.php';
-require_once '../database.php';
 
-// Initialize database
-$db = Database::getInstance();
-
-// Get current user for display
+// Get current user for display (already available from admin_header.php)
 $current_user = getCurrentUser();
 
 // Handle form submissions

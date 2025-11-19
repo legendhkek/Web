@@ -7,7 +7,11 @@ require_once '../database.php';
 
 // Initialize session if not already started
 if (session_status() === PHP_SESSION_NONE) {
-    initSecureSession();
+    if (function_exists('initSecureSession')) {
+        initSecureSession();
+    } else {
+        session_start();
+    }
 }
 
 // Function to check admin access

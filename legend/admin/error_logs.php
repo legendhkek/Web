@@ -3,11 +3,10 @@ require_once '../config.php';
 require_once 'admin_auth.php';
 require_once '../error_handler.php';
 
-// Check admin authorization
-requireAdminAuth();
-
-$nonce = setSecurityHeaders();
+// Admin access is automatically checked by admin_auth.php
+// Get current user (already authenticated)
 $current_user = getCurrentUser();
+$nonce = setSecurityHeaders();
 
 // Handle clear logs action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clear_logs') {
