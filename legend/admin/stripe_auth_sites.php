@@ -7,8 +7,31 @@ requireOwner(); // Only owner can manage sites
 
 $configFile = __DIR__ . '/../data/stripe_auth_sites.json';
 
+// Initialize config if file doesn't exist
+if (!file_exists($configFile)) {
+    $defaultConfig = [
+        'sites' => [],
+        'rotation_count' => 20,
+        'current_index' => 0,
+        'request_count' => 0
+    ];
+    $dir = dirname($configFile);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    file_put_contents($configFile, json_encode($defaultConfig, JSON_PRETTY_PRINT));
+}
+
 // Load current configuration
 $config = json_decode(file_get_contents($configFile), true);
+if (!is_array($config)) {
+    $config = [
+        'sites' => [],
+        'rotation_count' => 20,
+        'current_index' => 0,
+        'request_count' => 0
+    ];
+}
 
 // Handle POST requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
