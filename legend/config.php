@@ -2,6 +2,11 @@
 // Ex Chk - Configuration File
 // MongoDB Atlas Connection & Telegram Bot Configuration
 
+// Load environment variables
+if (file_exists(__DIR__ . '/env_loader.php')) {
+    require_once __DIR__ . '/env_loader.php';
+}
+
 // Initialize enhanced error handler
 if (file_exists(__DIR__ . '/error_handler.php')) {
     require_once __DIR__ . '/error_handler.php';
@@ -9,6 +14,16 @@ if (file_exists(__DIR__ . '/error_handler.php')) {
 
 class DatabaseConfig {
     // MongoDB Configuration
+    // Using environment variables for security, with fallback to hardcoded values
+    public static function getMongoDBUri() {
+        return EnvLoader::get('MONGODB_URI', 'mongodb+srv://sarthakgrid_db_user:pwAyjsdl9FPsBSUS@legend.0rrvdmy.mongodb.net/?appName=legend');
+    }
+    
+    public static function getDatabaseName() {
+        return EnvLoader::get('DATABASE_NAME', 'legend_db');
+    }
+    
+    // Legacy constants for backward compatibility (deprecated - use methods above)
     const MONGODB_URI = 'mongodb+srv://sarthakgrid_db_user:pwAyjsdl9FPsBSUS@legend.0rrvdmy.mongodb.net/?appName=legend';
     const DATABASE_NAME = 'legend_db';
     
@@ -27,11 +42,33 @@ class DatabaseConfig {
 }
 
 class TelegramConfig {
-    const BOT_TOKEN = '7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU'; // Updated bot token for Rocketsdsssdbot
+    // Using environment variables for security, with fallback to hardcoded values
+    public static function getBotToken() {
+        return EnvLoader::get('TELEGRAM_BOT_TOKEN', '7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU');
+    }
+    
+    public static function getChatId() {
+        return EnvLoader::get('TELEGRAM_CHAT_ID', '-1002854309982');
+    }
+    
+    public static function getNotificationChatId() {
+        return EnvLoader::get('TELEGRAM_NOTIFICATION_CHAT_ID', '-1002854309982');
+    }
+    
+    public static function getBotName() {
+        return EnvLoader::get('TELEGRAM_BOT_NAME', 'WebkeBot');
+    }
+    
+    public static function getBotSecret() {
+        return self::getBotToken(); // Bot secret is the same as token
+    }
+    
+    // Legacy constants for backward compatibility (deprecated - use methods above)
+    const BOT_TOKEN = '7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU';
     const CHAT_ID = '-1002854309982';
     const NOTIFICATION_CHAT_ID = '-1002854309982';
-    const BOT_NAME = 'WebkeBot'; // Remove @ symbol for widget
-    const BOT_SECRET = '7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU'; // Using bot token as secret for security
+    const BOT_NAME = 'WebkeBot';
+    const BOT_SECRET = '7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU';
 }
 
 class SiteConfig {

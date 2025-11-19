@@ -15,9 +15,12 @@ class Database {
                 throw new Exception('MongoDB extension not installed');
             }
             
-            // MongoDB connection using MongoDB PHP Library
-            $this->client = new MongoDB\Client(DatabaseConfig::MONGODB_URI);
-            $this->database = $this->client->selectDatabase(DatabaseConfig::DATABASE_NAME);
+            // MongoDB connection using MongoDB PHP Library with environment variables
+            $mongoUri = DatabaseConfig::getMongoDBUri();
+            $dbName = DatabaseConfig::getDatabaseName();
+            
+            $this->client = new MongoDB\Client($mongoUri);
+            $this->database = $this->client->selectDatabase($dbName);
             
             // Test connection
             $this->database->command(['ping' => 1]);
