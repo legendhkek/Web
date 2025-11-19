@@ -5,9 +5,7 @@ require_once 'auth.php';
 require_once 'utils.php';
 
 // Initialize session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+initSecureSession();
 
 // Check if user is logged in
 if (empty($_SESSION['user_id']) && empty($_SESSION['telegram_id'])) {

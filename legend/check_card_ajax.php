@@ -651,7 +651,10 @@ exit();
     error_log("Error file: " . $e->getFile());
     error_log("Error line: " . $e->getLine());
     error_log("Stack trace: " . $e->getTraceAsString());
-    error_log("Request data: cc=" . ($_GET['cc'] ?? 'not set') . ", site=" . ($_GET['site'] ?? 'not set'));
+    // Log request without sensitive card data
+    $ccSet = isset($_GET['cc']) ? 'set' : 'not set';
+    $siteSet = isset($_GET['site']) ? 'set' : 'not set';
+    error_log("Request data: cc=" . $ccSet . ", site=" . $siteSet);
     
     http_response_code(200); // Send 200 to avoid JS errors, but include error in response
     echo json_encode([

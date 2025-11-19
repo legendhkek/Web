@@ -4,10 +4,12 @@
  * Earn credits/keys by finding working proxies
  */
 
-session_start();
 require_once 'config.php';
 require_once 'database.php';
 require_once 'auth.php';
+require_once 'utils.php';
+
+initSecureSession();
 
 // Check authentication
 if (empty($_SESSION['user_id']) && empty($_SESSION['telegram_id'])) {
@@ -32,12 +34,12 @@ $message = '';
 $message_type = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
+    $action = sanitizeInput($_POST['action'] ?? '', 'alphanumeric');
     
     if ($action === 'test_proxy') {
-        $proxy = trim($_POST['proxy'] ?? '');
+        $proxy = sanitizeInput(trim($_POST['proxy'] ?? ''), 'string');
         
-        if (!empty($proxy)) {
+        if (!empty($proxy) && validateProxyFormat($proxy)) {
             $result = testProxy($proxy);
             
             if ($result['success']) {
@@ -51,12 +53,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = "✅ Proxy verified! You earned {$reward} credits!";
                 $message_type = 'success';
             } else {
-                $message = "❌ Proxy failed: " . $result['error'];
+                $errorMsg = htmlspecialchars($result['error'] ?? 'Unknown error', ENT_QUOTES, 'UTF-8');
+                $message = "❌ Proxy failed: " . $errorMsg;
                 $message_type = 'danger';
             }
+        } else {
+            $message = "❌ Invalid proxy format";
+            $message_type = 'danger';
         }
     } elseif ($action === 'fetch_proxies') {
-        $count = intval($_POST['count'] ?? 10);
+        $count = (int)filter_var($_POST['count'] ?? 10, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 100]]);
+        if ($count < 1) $count = 10;
         $proxies = fetchProxiesFromAPI($count);
         
         if (!empty($proxies)) {

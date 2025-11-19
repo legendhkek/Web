@@ -4,12 +4,13 @@
  * Handles multiple card checks concurrently
  */
 
-session_start();
 require_once 'config.php';
 require_once 'database.php';
 require_once 'auth.php';
 require_once 'cc_logs_manager.php';
 require_once 'utils.php';
+
+initSecureSession();
 
 header('Content-Type: application/json');
 

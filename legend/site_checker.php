@@ -1,7 +1,17 @@
 <?php
+require_once 'config.php';
+require_once 'utils.php';
+
+initSecureSession();
+
 $site_input_raw = '';
 if (isset($_POST['sites_input'])) {
+    // Sanitize input but preserve URLs for processing
     $site_input_raw = trim($_POST['sites_input']);
+    // Limit input length to prevent abuse
+    if (strlen($site_input_raw) > 10000) {
+        $site_input_raw = substr($site_input_raw, 0, 10000);
+    }
 }
 ?>
 

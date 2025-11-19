@@ -23,12 +23,8 @@ try {
     echo "✓ utils.php loaded\n";
 
     echo "5. Testing session...\n";
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-        echo "✓ Session started\n";
-    } else {
-        echo "✓ Session already active\n";
-    }
+    initSecureSession();
+    echo "✓ Session initialized\n";
 
     echo "6. Testing authentication check...\n";
     if (empty($_SESSION['user_id']) && empty($_SESSION['telegram_id'])) {
