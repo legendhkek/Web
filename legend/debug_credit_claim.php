@@ -1,5 +1,7 @@
 <?php
 // Simple debug script to test what's wrong with credit_claim.php
+// WARNING: This file should be DELETED or restricted in production environments
+// It exposes sensitive error information that should not be publicly accessible
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 

@@ -2,6 +2,8 @@
 /**
  * System Health Check & Error Detector
  * Run this file to check for common issues
+ * WARNING: This file should be restricted in production environments
+ * It exposes sensitive system information
  */
 
 error_reporting(E_ALL);

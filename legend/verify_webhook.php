@@ -1,7 +1,7 @@
 <?php
 require_once 'config.php';
 
-$bot_token = '7934355076:AAEHirX29ay1Q4m1EuXqXCt-1Tk9DpuLHLU';
+$bot_token = TelegramConfig::BOT_TOKEN;
 $ch = curl_init("https://api.telegram.org/bot{$bot_token}/getWebhookInfo");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);

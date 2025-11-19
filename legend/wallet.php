@@ -18,13 +18,20 @@ $message = '';
 $messageType = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action'])) {
-        switch ($_POST['action']) {
+    // Verify CSRF token
+    $csrf_token = $_POST['csrf_token'] ?? '';
+    if (!TelegramAuth::validateCSRFToken($csrf_token)) {
+        $message = "Security error: Invalid request token";
+        $messageType = 'error';
+    } elseif (isset($_POST['action'])) {
+        $action = $_POST['action'] ?? '';
+        
+        switch ($action) {
             case 'deposit':
-                $amount = (int)$_POST['amount'];
-                if ($amount > 0 && $amount <= 1000) {
+                $amount = filter_var($_POST['amount'] ?? 0, FILTER_VALIDATE_INT);
+                if ($amount !== false && $amount > 0 && $amount <= 1000) {
                     // In a real implementation, integrate with payment gateway
-                    $message = "Deposit request for $amount XCoins submitted. Payment gateway integration required.";
+                    $message = "Deposit request for " . htmlspecialchars($amount) . " XCoins submitted. Payment gateway integration required.";
                     $messageType = 'info';
                 } else {
                     $message = "Invalid deposit amount. Must be between 1-1000 XCoins.";
@@ -33,36 +40,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
                 
             case 'redeem':
-                $credits = (int)$_POST['credits'];
+                $credits = filter_var($_POST['credits'] ?? 0, FILTER_VALIDATE_INT);
+                if ($credits === false || $credits <= 0) {
+                    $message = "Invalid credit amount.";
+                    $messageType = 'error';
+                    break;
+                }
+                
                 $xcoinCost = $credits * 2; // 1 credit = 2 XCoins
                 
-                if ($credits > 0 && $user['xcoin_balance'] >= $xcoinCost) {
+                if ($user['xcoin_balance'] >= $xcoinCost) {
                     $db->redeemCredits($userId, $credits, $xcoinCost);
-                    $message = "Successfully redeemed $credits credits for $xcoinCost XCoins!";
+                    $message = "Successfully redeemed " . htmlspecialchars($credits) . " credits for " . htmlspecialchars($xcoinCost) . " XCoins!";
                     $messageType = 'success';
                     $user = $db->getUserByTelegramId($userId); // Refresh user data
                 } else {
-                    $message = "Insufficient XCoin balance or invalid amount.";
+                    $message = "Insufficient XCoin balance.";
                     $messageType = 'error';
                 }
                 break;
                 
             case 'upgrade':
-                $plan = $_POST['plan'];
+                $plan = $_POST['plan'] ?? '';
                 $costs = [
                     'premium' => 100,
                     'vip' => 250
                 ];
                 
+                // Validate plan is one of the allowed values
+                if (!in_array($plan, ['premium', 'vip'], true)) {
+                    $message = "Invalid membership plan.";
+                    $messageType = 'error';
+                    break;
+                }
+                
                 if (isset($costs[$plan]) && $user['xcoin_balance'] >= $costs[$plan]) {
                     $db->upgradeMembership($userId, $plan, $costs[$plan]);
-                    $message = "Successfully upgraded to " . ucfirst($plan) . " membership!";
+                    $message = "Successfully upgraded to " . htmlspecialchars(ucfirst($plan)) . " membership!";
                     $messageType = 'success';
                     $user = $db->getUserByTelegramId($userId); // Refresh user data
                 } else {
                     $message = "Insufficient XCoin balance for this upgrade.";
                     $messageType = 'error';
                 }
+                break;
+                
+            default:
+                $message = "Invalid action.";
+                $messageType = 'error';
                 break;
         }
     }
@@ -475,6 +500,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <form method="POST">
                     <input type="hidden" name="action" value="deposit">
+                    <input type="hidden" name="csrf_token" value="<?php echo TelegramAuth::generateCSRFToken(); ?>">
                     <div class="form-group">
                         <label class="form-label">Amount (XCoins)</label>
                         <select name="amount" class="form-select" required>
@@ -501,6 +527,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <form method="POST">
                     <input type="hidden" name="action" value="redeem">
+                    <input type="hidden" name="csrf_token" value="<?php echo TelegramAuth::generateCSRFToken(); ?>">
                     <div class="form-group">
                         <label class="form-label">Credits to Redeem</label>
                         <input type="number" name="credits" class="form-input" min="1" max="<?php echo floor($user['xcoin_balance'] / 2); ?>" placeholder="Enter credits amount" required>
@@ -550,6 +577,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <form method="POST" style="margin-top: 1rem;">
                             <input type="hidden" name="action" value="upgrade">
                             <input type="hidden" name="plan" value="premium">
+                            <input type="hidden" name="csrf_token" value="<?php echo TelegramAuth::generateCSRFToken(); ?>">
                             <button type="submit" class="btn" <?php echo $user['xcoin_balance'] < 100 ? 'disabled' : ''; ?>>
                                 Upgrade Now
                             </button>
@@ -573,6 +601,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <form method="POST" style="margin-top: 1rem;">
                             <input type="hidden" name="action" value="upgrade">
                             <input type="hidden" name="plan" value="vip">
+                            <input type="hidden" name="csrf_token" value="<?php echo TelegramAuth::generateCSRFToken(); ?>">
                             <button type="submit" class="btn" <?php echo $user['xcoin_balance'] < 250 ? 'disabled' : ''; ?>>
                                 Upgrade Now
                             </button>

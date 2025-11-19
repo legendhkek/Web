@@ -1,5 +1,7 @@
 <?php
 // Debug version of credit_claim.php to identify the 500 error
+// WARNING: This file should be DELETED or restricted in production environments
+// It exposes sensitive error information that should not be publicly accessible
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 

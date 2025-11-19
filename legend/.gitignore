@@ -1,0 +1,54 @@
+# Sensitive configuration files
+config.php
+.env
+.env.local
+.env.production
+
+# Database files
+data/
+*.db
+*.sqlite
+
+# Logs
+*.log
+error_log.txt
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Backup files
+*.bak
+*.backup
+config.php.bak
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Vendor/dependencies
+vendor/
+node_modules/
+composer.lock
+package-lock.json
+
+# User uploaded files
+uploads/
+tmp/
+
+# Sensitive data
+*.pem
+*.key
+*.crt
+*.p12
+credentials.json

@@ -1,5 +1,7 @@
 <?php
 // Test script to debug JSON corruption in card checker
+// WARNING: This file should be DELETED or restricted in production environments
+// It exposes sensitive error information that should not be publicly accessible
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
