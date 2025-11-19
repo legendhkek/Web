@@ -22,9 +22,10 @@ $configuredHost = parse_url(AppConfig::DOMAIN, PHP_URL_HOST) ?: '';
 $error = '';
 $success = '';
 
-if (isset($_GET['timeout'])) {
+// Sanitize URL parameters
+if (isset($_GET['timeout']) && $_GET['timeout'] == '1') {
     $error = 'Your session has expired. Please log in again.';
-} elseif (isset($_GET['logged_out'])) {
+} elseif (isset($_GET['logged_out']) && $_GET['logged_out'] == '1') {
     $success = 'You have been logged out successfully.';
 }
 
@@ -34,7 +35,18 @@ if (isset($_GET['id']) && isset($_GET['hash'])) {
     if (!TelegramAuth::checkRateLimit('login', 10, 300)) {
         $error = 'Too many login attempts. Please wait 5 minutes and try again.';
     } else {
-        $authResult = TelegramAuth::handleTelegramLogin($_GET);
+        // Sanitize Telegram auth data before processing
+        require_once 'utils.php';
+        $sanitizedAuthData = [
+            'id' => isset($_GET['id']) ? (int)$_GET['id'] : 0,
+            'first_name' => isset($_GET['first_name']) ? sanitizeInput($_GET['first_name'], 'string') : '',
+            'last_name' => isset($_GET['last_name']) ? sanitizeInput($_GET['last_name'], 'string') : '',
+            'username' => isset($_GET['username']) ? sanitizeInput($_GET['username'], 'alphanumeric') : '',
+            'photo_url' => isset($_GET['photo_url']) ? filter_var($_GET['photo_url'], FILTER_SANITIZE_URL) : '',
+            'auth_date' => isset($_GET['auth_date']) ? (int)$_GET['auth_date'] : 0,
+            'hash' => isset($_GET['hash']) ? sanitizeInput($_GET['hash'], 'alphanumeric') : ''
+        ];
+        $authResult = TelegramAuth::handleTelegramLogin($sanitizedAuthData);
         if ($authResult['success']) {
             // Send login notification to owner
             try {

@@ -60,15 +60,12 @@ class OwnerLogger {
                 $response = @file_get_contents($url, false, $context);
                 $success = !empty($response);
             }
-            // Windows curl command fallback
+            // Fallback: Log error if cURL and openssl are not available
+            // shell_exec removed for security reasons - should not be used in production
             else {
-                $escapedMessage = escapeshellarg($message);
-                $curlCmd = 'curl -s -X POST "' . $url . '" ' .
-                          '-H "Content-Type: application/x-www-form-urlencoded" ' .
-                          '-d "chat_id=' . $chat_id . '&text=' . urlencode($message) . '&parse_mode=' . $parse_mode . '"';
-                
-                $response = shell_exec($curlCmd);
-                $success = !empty($response) && strpos($response, '"ok":true') !== false;
+                error_log('Unable to send Telegram notification: cURL extension and openssl not available');
+                $success = false;
+                $response = 'ERROR: No method available to send notifications';
             }
             
             $results[] = ['chat_id' => $chat_id, 'success' => $success, 'response' => $response];
