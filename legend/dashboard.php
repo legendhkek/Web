@@ -793,6 +793,71 @@ $claimMessage = '';
             background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
         }
 
+        /* Loading State */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Improved Card Hover Effects */
+        .card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2), 0 0 20px rgba(29, 161, 242, 0.3);
+        }
+
+        /* Better Button Feedback */
+        .claim-button {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .claim-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .claim-button:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .container {
@@ -807,6 +872,7 @@ $claimMessage = '';
 
             .profile-stats {
                 justify-content: center;
+                flex-wrap: wrap;
             }
 
             .cards-grid {
@@ -818,12 +884,47 @@ $claimMessage = '';
                 padding: 16px 0;
             }
 
+            .header-actions {
+                gap: 8px;
+            }
+
             body {
                 padding-bottom: 80px;
             }
 
             .chart-wrapper {
                 height: 150px;
+            }
+
+            .nav-container {
+                padding: 0 10px;
+            }
+
+            .profile-name {
+                font-size: 22px;
+            }
+
+            .section-title {
+                font-size: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .profile-name {
+                font-size: 18px;
+            }
+
+            .profile-stat-value {
+                font-size: 20px;
+            }
+
+            .card-value {
+                font-size: 24px;
+            }
+
+            .timer-chip {
+                font-size: 12px;
+                padding: 6px 12px;
             }
         }
     </style>
@@ -1293,6 +1394,11 @@ $claimMessage = '';
         </div>
     </div>
 
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
     <script src="assets/js/main.js" nonce="<?php echo $nonce; ?>"></script>
     <script nonce="<?php echo $nonce; ?>">
         // Theme Management
@@ -1646,6 +1752,40 @@ $claimMessage = '';
             });
         }
 
+        // Helper function to show notifications
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = 'success-message';
+            
+            if (type === 'error') {
+                notification.style.background = 'rgba(239, 68, 68, 0.1)';
+                notification.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                notification.style.color = 'var(--error-color)';
+                notification.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
+            } else if (type === 'success') {
+                notification.style.background = 'rgba(16, 185, 129, 0.1)';
+                notification.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                notification.style.color = 'var(--success-color)';
+                notification.innerHTML = '<i class="fas fa-check-circle"></i> ' + message;
+            } else {
+                notification.innerHTML = '<i class="fas fa-info-circle"></i> ' + message;
+            }
+            
+            const container = document.querySelector('.container');
+            if (container) {
+                container.insertBefore(notification, container.firstChild);
+                
+                // Auto-remove after 5 seconds
+                setTimeout(() => {
+                    notification.style.transition = 'opacity 0.3s ease';
+                    notification.style.opacity = '0';
+                    setTimeout(() => notification.remove(), 300);
+                }, 5000);
+            }
+            
+            return notification;
+        }
+
         // Daily credit claim functionality
         const claimCreditsBtn = document.getElementById('claimCreditsBtn');
         if (claimCreditsBtn) {
@@ -1665,14 +1805,15 @@ $claimMessage = '';
                         credentials: 'same-origin'
                     });
                     
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
                     const result = await response.json();
                     
                     if (result.success) {
                         // Show success message
-                        const successMsg = document.createElement('div');
-                        successMsg.className = 'success-message';
-                        successMsg.innerHTML = '<i class="fas fa-check-circle"></i> ' + result.message;
-                        document.querySelector('.container').insertBefore(successMsg, document.querySelector('.container').firstChild);
+                        showNotification(result.message, 'success');
                         
                         // Update countdown if next claim time provided
                         if (result.next_claim_time) {
@@ -1685,13 +1826,7 @@ $claimMessage = '';
                         }, 2000);
                     } else {
                         // Show error message
-                        const errorMsg = document.createElement('div');
-                        errorMsg.className = 'success-message';
-                        errorMsg.style.background = 'rgba(239, 68, 68, 0.1)';
-                        errorMsg.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                        errorMsg.style.color = 'var(--error-color)';
-                        errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + result.message;
-                        document.querySelector('.container').insertBefore(errorMsg, document.querySelector('.container').firstChild);
+                        showNotification(result.message, 'error');
                         
                         // Update countdown if next claim time provided
                         if (result.next_claim_time) {
@@ -1700,28 +1835,13 @@ $claimMessage = '';
                         
                         this.disabled = false;
                         this.innerHTML = originalText;
-                        
-                        // Remove error message after 5 seconds
-                        setTimeout(() => {
-                            errorMsg.remove();
-                        }, 5000);
                     }
                 } catch (error) {
                     console.error('Claim error:', error);
-                    const errorMsg = document.createElement('div');
-                    errorMsg.className = 'success-message';
-                    errorMsg.style.background = 'rgba(239, 68, 68, 0.1)';
-                    errorMsg.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                    errorMsg.style.color = 'var(--error-color)';
-                    errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Network error occurred. Please try again.';
-                    document.querySelector('.container').insertBefore(errorMsg, document.querySelector('.container').firstChild);
+                    showNotification('Network error occurred. Please try again.', 'error');
                     
                     this.disabled = false;
                     this.innerHTML = originalText;
-                    
-                    setTimeout(() => {
-                        errorMsg.remove();
-                    }, 5000);
                 }
             });
         }

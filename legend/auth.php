@@ -107,7 +107,13 @@ class TelegramAuth {
             if ($debug && $diagnosis) {
                 return ['success' => false, 'error' => $diagnosis];
             }
-            return ['success' => false, 'error' => 'Invalid authentication data. Please try again.'];
+            
+            // Check if auth_date is the issue
+            if (!isset($authData['auth_date']) || (time() - $authData['auth_date']) > 86400) {
+                return ['success' => false, 'error' => 'Authentication session expired. Please try logging in again.'];
+            }
+            
+            return ['success' => false, 'error' => 'Authentication failed. Please ensure you are using the correct Telegram account and try again.'];
         }
         
         try {
