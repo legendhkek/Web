@@ -723,7 +723,8 @@ class StripeAuthChecker {
                 'status' => 'ERROR',
                 'message' => 'Failed to visit account page',
                 'account_email' => null,
-                'pm_id' => null
+                'pm_id' => null,
+                'logs' => $this->logBuffer
             ];
         }
         
@@ -734,7 +735,8 @@ class StripeAuthChecker {
                 'status' => 'ERROR',
                 'message' => 'Failed to extract registration nonce',
                 'account_email' => null,
-                'pm_id' => null
+                'pm_id' => null,
+                'logs' => $this->logBuffer
             ];
         }
         
@@ -745,7 +747,8 @@ class StripeAuthChecker {
                 'status' => 'ERROR',
                 'message' => 'Failed to create account',
                 'account_email' => $this->accountEmail,
-                'pm_id' => null
+                'pm_id' => null,
+                'logs' => $this->logBuffer
             ];
         }
         
@@ -757,7 +760,8 @@ class StripeAuthChecker {
                 'status' => 'ERROR',
                 'message' => 'Failed to load payment method page',
                 'account_email' => $this->accountEmail,
-                'pm_id' => null
+                'pm_id' => null,
+                'logs' => $this->logBuffer
             ];
         }
         
@@ -771,7 +775,8 @@ class StripeAuthChecker {
                 'status' => 'ERROR',
                 'message' => 'Failed to tokenize card with Stripe',
                 'account_email' => $this->accountEmail,
-                'pm_id' => null
+                'pm_id' => null,
+                'logs' => $this->logBuffer
             ];
         }
         
