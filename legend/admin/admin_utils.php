@@ -9,32 +9,34 @@
  * @param int $timestamp Unix timestamp
  * @return string Formatted date
  */
-function formatDate($timestamp) {
-    if (!$timestamp) return 'Never';
-    
-    $now = time();
-    $diff = $now - $timestamp;
-    
-    if ($diff < 60) {
-        return 'Just now';
-    } elseif ($diff < 3600) {
-        $minutes = floor($diff / 60);
-        return $minutes . ' minute' . ($minutes > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 86400) {
-        $hours = floor($diff / 3600);
-        return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 604800) {
-        $days = floor($diff / 86400);
-        return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 2592000) {
-        $weeks = floor($diff / 604800);
-        return $weeks . ' week' . ($weeks > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 31536000) {
-        $months = floor($diff / 2592000);
-        return $months . ' month' . ($months > 1 ? 's' : '') . ' ago';
-    } else {
-        $years = floor($diff / 31536000);
-        return $years . ' year' . ($years > 1 ? 's' : '') . ' ago';
+if (!function_exists('formatDate')) {
+    function formatDate($timestamp) {
+        if (!$timestamp) return 'Never';
+        
+        $now = time();
+        $diff = $now - $timestamp;
+        
+        if ($diff < 60) {
+            return 'Just now';
+        } elseif ($diff < 3600) {
+            $minutes = floor($diff / 60);
+            return $minutes . ' minute' . ($minutes > 1 ? 's' : '') . ' ago';
+        } elseif ($diff < 86400) {
+            $hours = floor($diff / 3600);
+            return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+        } elseif ($diff < 604800) {
+            $days = floor($diff / 86400);
+            return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+        } elseif ($diff < 2592000) {
+            $weeks = floor($diff / 604800);
+            return $weeks . ' week' . ($weeks > 1 ? 's' : '') . ' ago';
+        } elseif ($diff < 31536000) {
+            $months = floor($diff / 2592000);
+            return $months . ' month' . ($months > 1 ? 's' : '') . ' ago';
+        } else {
+            $years = floor($diff / 31536000);
+            return $years . ' year' . ($years > 1 ? 's' : '') . ' ago';
+        }
     }
 }
 
@@ -79,12 +81,33 @@ function isValidEmail($email) {
 }
 
 /**
- * Sanitize input
+ * Sanitize input (admin version - compatible with utils.php version)
  * @param string $input Input to sanitize
+ * @param string $type Type of input (for compatibility with utils.php version)
  * @return string Sanitized input
  */
-function sanitizeInput($input) {
-    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+if (!function_exists('sanitizeInput')) {
+    function sanitizeInput($input, $type = 'string') {
+        // Use the full version from utils.php if available, otherwise simple version
+        if ($type !== 'string') {
+            // Handle different types like utils.php does
+            switch ($type) {
+                case 'int':
+                    return (int)filter_var($input, FILTER_SANITIZE_NUMBER_INT);
+                case 'float':
+                    return (float)filter_var($input, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                case 'email':
+                    return filter_var(trim($input), FILTER_SANITIZE_EMAIL);
+                case 'url':
+                    return filter_var(trim($input), FILTER_SANITIZE_URL);
+                case 'alphanumeric':
+                    return preg_replace('/[^a-zA-Z0-9]/', '', $input);
+                default:
+                    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+            }
+        }
+        return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+    }
 }
 
 /**
