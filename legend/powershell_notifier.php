@@ -30,12 +30,18 @@ class PowerShellNotifier {
         
         $jsonData = json_encode($data, JSON_UNESCAPED_UNICODE);
         
-        // Create PowerShell command
+        // Properly escape data for PowerShell command
+        // Use base64 encoding to avoid shell escaping issues
+        $jsonDataBase64 = base64_encode($jsonData);
+        $urlBase64 = base64_encode($url);
+        
+        // Create PowerShell command with base64 encoded data
         $powershellCmd = 'powershell.exe -Command "' .
+            '$body = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(\'' . $jsonDataBase64 . '\')); ' .
+            '$uri = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(\'' . $urlBase64 . '\')); ' .
             '$headers = @{\'Content-Type\' = \'application/json\'}; ' .
-            '$body = \'' . addslashes($jsonData) . '\'; ' .
             'try { ' .
-            '$response = Invoke-RestMethod -Uri \'' . $url . '\' -Method Post -Body $body -Headers $headers; ' .
+            '$response = Invoke-RestMethod -Uri $uri -Method Post -Body $body -Headers $headers; ' .
             'Write-Output \"SUCCESS: $($response | ConvertTo-Json -Compress)\"; ' .
             '} catch { ' .
             'Write-Output \"ERROR: $($_.Exception.Message)\"; ' .

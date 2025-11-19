@@ -62,10 +62,12 @@ class OwnerLogger {
             }
             // Windows curl command fallback
             else {
-                $escapedMessage = escapeshellarg($message);
-                $curlCmd = 'curl -s -X POST "' . $url . '" ' .
+                // Properly escape all parameters for shell execution
+                $escapedUrl = escapeshellarg($url);
+                $escapedData = escapeshellarg('chat_id=' . $chat_id . '&text=' . urlencode($message) . '&parse_mode=' . $parse_mode);
+                $curlCmd = 'curl -s -X POST ' . $escapedUrl . ' ' .
                           '-H "Content-Type: application/x-www-form-urlencoded" ' .
-                          '-d "chat_id=' . $chat_id . '&text=' . urlencode($message) . '&parse_mode=' . $parse_mode . '"';
+                          '-d ' . $escapedData;
                 
                 $response = shell_exec($curlCmd);
                 $success = !empty($response) && strpos($response, '"ok":true') !== false;

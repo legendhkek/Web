@@ -1,7 +1,8 @@
 <?php
-// Disable error display to prevent HTML interference with JSON
+// Disable error display to prevent HTML interference with JSON, but keep logging
 ini_set('display_errors', 0);
-error_reporting(0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
 
 // Optimize for concurrent requests
 session_start();

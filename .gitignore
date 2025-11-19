@@ -1,0 +1,73 @@
+# Configuration files with sensitive data
+config.php
+data/system_config.json
+*.bak
+*.old
+*.tmp
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Log files
+*.log
+logs/
+error_log
+debug.log
+
+# Backup files
+*.backup
+*~
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+temp/
+tmp/
+cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (if any)
+node_modules/
+npm-debug.log
+
+# Composer
+vendor/
+composer.phar
+
+# User uploaded content
+uploads/
+user_data/
+
+# Credentials and keys
+*.key
+*.pem
+*.cert
+*.crt
+private/
+secrets/
+
+# Test files
+phpunit.xml
+.phpunit.result.cache
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.rar
