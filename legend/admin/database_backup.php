@@ -110,7 +110,18 @@ if (is_dir($backup_dir)) {
                                 <tr>
                                     <td><?php echo htmlspecialchars($backup['filename']); ?></td>
                                     <td><?php echo number_format($backup['size'] / 1024, 2); ?> KB</td>
-                                    <td><?php echo date('Y-m-d H:i:s', $backup['created']); ?></td>
+                                    <td>
+                                        <?php
+                                        $created = $backup['created'] ?? null;
+                                        if ($created instanceof MongoDB\BSON\UTCDateTime) {
+                                            echo $created->toDateTime()->format('Y-m-d H:i:s');
+                                        } elseif (is_numeric($created)) {
+                                            echo date('Y-m-d H:i:s', $created);
+                                        } else {
+                                            echo 'N/A';
+                                        }
+                                        ?>
+                                    </td>
                                     <td>
                                         <a href="?download=<?php echo urlencode($backup['filename']); ?>" class="btn btn-sm btn-success">
                                             <i class="bi bi-download"></i> Download

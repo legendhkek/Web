@@ -242,7 +242,16 @@ function getSortIcon($column, $current_sort, $current_order) {
                                     </td>
                                     <td>
                                         <?php if (isset($user['last_login_at'])): ?>
-                                            <span title="<?php echo date('Y-m-d H:i:s', $user['last_login_at']); ?>">
+                                            <?php
+                                            $lastLogin = $user['last_login_at'];
+                                            $title = '';
+                                            if ($lastLogin instanceof MongoDB\BSON\UTCDateTime) {
+                                                $title = $lastLogin->toDateTime()->format('Y-m-d H:i:s');
+                                            } elseif (is_numeric($lastLogin)) {
+                                                $title = date('Y-m-d H:i:s', $lastLogin);
+                                            }
+                                            ?>
+                                            <span title="<?php echo htmlspecialchars($title); ?>">
                                                 <?php echo formatDate($user['last_login_at']); ?>
                                             </span>
                                         <?php else: ?>

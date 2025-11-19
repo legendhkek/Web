@@ -6,6 +6,7 @@
 
 require_once '../config.php';
 require_once '../database.php';
+require_once '../admin_manager.php';
 
 // Initialize session if not already started
 if (session_status() === PHP_SESSION_NONE) {
@@ -14,6 +15,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Initialize database instance
 $db = Database::getInstance();
+$adminManager = new AdminManager();
 
 /**
  * Check if user has admin access
@@ -51,15 +53,12 @@ function checkAdminAccess($require_owner = false) {
         exit;
     }
     
-    // Get admin and owner IDs from config
-    $admin_ids = AppConfig::ADMIN_IDS;
-    $owner_ids = AppConfig::OWNER_IDS;
+    // Use AdminManager for consistent admin checking
+    global $adminManager;
+    $is_owner = $adminManager->isOwner($telegram_id);
+    $is_admin = $adminManager->isAdmin($telegram_id);
     
-    // Check if user is in admin or owner arrays
-    $is_admin = in_array($telegram_id, $admin_ids);
-    $is_owner = in_array($telegram_id, $owner_ids);
-    
-    // Also check database role
+    // Also check database role for backward compatibility
     if (!$is_owner && !empty($user['role']) && $user['role'] === 'owner') {
         $is_owner = true;
     }

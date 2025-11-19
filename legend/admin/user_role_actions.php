@@ -8,8 +8,11 @@ if (!$user_id) {
     exit;
 }
 
-// Get user details
+// Get user details - try getUserById first, then getUserByTelegramId as fallback
 $user = $db->getUserById($user_id);
+if (!$user && is_numeric($user_id)) {
+    $user = $db->getUserByTelegramId((int)$user_id);
+}
 if (!$user) {
     header('Location: user_management.php?error=user_not_found');
     exit;
@@ -27,10 +30,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_role'])) {
     } else {
         $old_role = $user['role'];
         
-        // Update user role
-        if ($db->updateUserRole($user_id, $new_role)) {
+        // Update user role (use telegram_id from user if available)
+        $user_telegram_id = $user['telegram_id'] ?? $user_id;
+        if ($db->updateUserRole($user_telegram_id, $new_role)) {
             // Log the action
-            $db->logAuditAction($_SESSION['user_id'], 'role_changed', $user_id, [
+            $admin_id = $_SESSION['telegram_id'] ?? $_SESSION['user_id'] ?? 'system';
+            $db->logAuditAction($admin_id, 'role_changed', $user_telegram_id, [
                 'old_role' => $old_role,
                 'new_role' => $new_role,
                 'reason' => $reason

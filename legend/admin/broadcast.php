@@ -529,7 +529,16 @@ function getRecentBroadcasts() {
                                                 <?php echo ucfirst($msg['priority']); ?>
                                             </span>
                                             <small class="text-muted">
-                                                <?php echo date('M j, g:i A', $msg['created_at']); ?>
+                                                <?php
+                                                $createdAt = $msg['created_at'] ?? null;
+                                                if ($createdAt instanceof MongoDB\BSON\UTCDateTime) {
+                                                    echo $createdAt->toDateTime()->format('M j, g:i A');
+                                                } elseif (is_numeric($createdAt)) {
+                                                    echo date('M j, g:i A', $createdAt);
+                                                } else {
+                                                    echo 'N/A';
+                                                }
+                                                ?>
                                             </small>
                                         </div>
                                         <p class="mb-2"><?php echo htmlspecialchars($msg['message']); ?></p>
@@ -618,7 +627,16 @@ function getRecentBroadcasts() {
                                     </td>
                                     <td>
                                         <small class="text-muted">
-                                            <?php echo date('M j, g:i A', $broadcast['timestamp']); ?>
+                                            <?php
+                                            $timestamp = $broadcast['timestamp'] ?? null;
+                                            if ($timestamp instanceof MongoDB\BSON\UTCDateTime) {
+                                                echo $timestamp->toDateTime()->format('M j, g:i A');
+                                            } elseif (is_numeric($timestamp)) {
+                                                echo date('M j, g:i A', $timestamp);
+                                            } else {
+                                                echo 'N/A';
+                                            }
+                                            ?>
                                         </small>
                                     </td>
                                 </tr>

@@ -120,7 +120,18 @@ function getPriorityBadge($priority) {
                                             <?php echo htmlspecialchars(str_replace('_', ' ', ucfirst($ticket['status']))); ?>
                                         </span>
                                     </td>
-                                    <td><?php echo date('Y-m-d H:i', $ticket['created_at']); ?></td>
+                                    <td>
+                                        <?php
+                                        $createdAt = $ticket['created_at'] ?? null;
+                                        if ($createdAt instanceof MongoDB\BSON\UTCDateTime) {
+                                            echo $createdAt->toDateTime()->format('Y-m-d H:i');
+                                        } elseif (is_numeric($createdAt)) {
+                                            echo date('Y-m-d H:i', $createdAt);
+                                        } else {
+                                            echo 'N/A';
+                                        }
+                                        ?>
+                                    </td>
                                     <td>
                                         <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#ticketModal<?php echo $ticket['id']; ?>">
                                             <i class="bi bi-eye-fill"></i> View

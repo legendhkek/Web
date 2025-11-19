@@ -14,13 +14,19 @@ $online_users = count($db->getOnlineUsers());
 $recent_users = $db->getAllUsers(5, 0);
 
 // Get system stats
+require_once '../admin_manager.php';
+$adminManager = new AdminManager();
+$allAdmins = $adminManager->getAllAdmins();
+$admin_count = count(array_filter($allAdmins, function($a) { return ($a['type'] ?? '') === 'dynamic' || ($a['type'] ?? '') === 'static'; }));
+$owner_count = count(array_filter($allAdmins, function($a) { return ($a['type'] ?? '') === 'owner'; }));
+
 $system_stats = [
     'total_users' => $total_users,
     'total_credits_claimed' => $total_credits_claimed,
     'total_tool_uses' => $total_tool_uses,
     'online_users' => $online_users,
-    'admin_count' => count(AppConfig::ADMIN_IDS),
-    'owner_count' => count(AppConfig::OWNER_IDS)
+    'admin_count' => $admin_count,
+    'owner_count' => $owner_count
 ];
 
 ?>
@@ -43,7 +49,17 @@ $system_stats = [
                             <strong>Role:</strong> <?php echo getRoleBadge($current_user['role'] ?? 'admin'); ?>
                         </div>
                         <div class="me-3">
-                            <strong>Last Login:</strong> <?php echo date('M j, Y g:i A', $current_user['last_login'] ?? time()); ?>
+                            <strong>Last Login:</strong> 
+                            <?php 
+                            $lastLogin = $current_user['last_login_at'] ?? $current_user['last_login'] ?? null;
+                            if ($lastLogin instanceof MongoDB\BSON\UTCDateTime) {
+                                echo $lastLogin->toDateTime()->format('M j, Y g:i A');
+                            } elseif (is_numeric($lastLogin)) {
+                                echo date('M j, Y g:i A', $lastLogin);
+                            } else {
+                                echo 'Never';
+                            }
+                            ?>
                         </div>
                     </div>
                 </div>

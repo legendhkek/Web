@@ -6,6 +6,7 @@
 
 require_once '../config.php';
 require_once '../database.php';
+require_once '../admin_manager.php';
 require_once 'admin_auth.php';
 
 // Initialize session if not already started
@@ -32,14 +33,12 @@ if (!$user) {
     exit;
 }
 
-// Check admin/owner privileges
-$admin_ids = AppConfig::ADMIN_IDS;
-$owner_ids = AppConfig::OWNER_IDS;
+// Use AdminManager for consistent admin checking
+$adminManager = new AdminManager();
+$is_owner = $adminManager->isOwner($telegram_id);
+$is_admin = $adminManager->isAdmin($telegram_id);
 
-$is_admin = in_array($telegram_id, $admin_ids);
-$is_owner = in_array($telegram_id, $owner_ids);
-
-// Also check database role
+// Also check database role for backward compatibility
 if (!$is_owner && !empty($user['role']) && $user['role'] === 'owner') {
     $is_owner = true;
 }

@@ -8,18 +8,30 @@ if (!isset($_GET['id'])) {
 }
 
 $user_id = $_GET['id'];
+// Try getUserById first, then getUserByTelegramId as fallback
 $user = $db->getUserById($user_id);
+if (!$user && is_numeric($user_id)) {
+    $user = $db->getUserByTelegramId((int)$user_id);
+}
 
 if (!$user) {
     header('Location: user_management.php?error=user_not_found');
     exit;
 }
 
-// Get user statistics
-$user_stats = $db->getUserStats($user_id);
+// Get user statistics (use telegram_id from user if available)
+$user_telegram_id = $user['telegram_id'] ?? $user_id;
+$user_stats = $db->getUserStats($user_telegram_id);
 
-// Get recent audit logs for this user
-$recent_logs = $db->getAuditLogs(10, 0, $user_id);
+// Get recent audit logs (filter by user_id if method supports it)
+$recent_logs = $db->getAuditLogs(10, 0);
+// Filter logs for this user if available
+if (is_array($recent_logs)) {
+    $recent_logs = array_filter($recent_logs, function($log) use ($user_id) {
+        return isset($log['target_id']) && $log['target_id'] == $user_id;
+    });
+    $recent_logs = array_slice($recent_logs, 0, 10);
+}
 
 // Mock data for activity history (in real implementation, this would come from database)
 $activity_history = [

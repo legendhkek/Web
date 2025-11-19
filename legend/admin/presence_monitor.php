@@ -64,7 +64,18 @@ if (method_exists($db, 'getRecentActivity')) {
                                         <br><small class="text-muted">@<?php echo htmlspecialchars($user['username'] ?? 'N/A'); ?></small>
                                     </td>
                                     <td><span class="badge bg-secondary"><?php echo htmlspecialchars($user['role']); ?></span></td>
-                                    <td><?php echo date('H:i:s', $user['last_seen'] ?? time()); ?></td>
+                                    <td>
+                                        <?php
+                                        $lastSeen = $user['last_seen'] ?? null;
+                                        if ($lastSeen instanceof MongoDB\BSON\UTCDateTime) {
+                                            echo $lastSeen->toDateTime()->format('H:i:s');
+                                        } elseif (is_numeric($lastSeen)) {
+                                            echo date('H:i:s', $lastSeen);
+                                        } else {
+                                            echo date('H:i:s', time());
+                                        }
+                                        ?>
+                                    </td>
                                     <td><span class="badge bg-success">Online</span></td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -87,7 +98,18 @@ if (method_exists($db, 'getRecentActivity')) {
                             <tbody>
                                 <?php foreach ($recent_activity as $activity): ?>
                                 <tr>
-                                    <td><?php echo date('H:i:s', $activity['timestamp']); ?></td>
+                                    <td>
+                                        <?php
+                                        $timestamp = $activity['timestamp'] ?? null;
+                                        if ($timestamp instanceof MongoDB\BSON\UTCDateTime) {
+                                            echo $timestamp->toDateTime()->format('H:i:s');
+                                        } elseif (is_numeric($timestamp)) {
+                                            echo date('H:i:s', $timestamp);
+                                        } else {
+                                            echo 'N/A';
+                                        }
+                                        ?>
+                                    </td>
                                     <td><?php echo htmlspecialchars($activity['user_id']); ?></td>
                                     <td><?php echo htmlspecialchars($activity['action']); ?></td>
                                 </tr>

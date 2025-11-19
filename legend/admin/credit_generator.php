@@ -96,12 +96,7 @@ function generateRandomString($length = 8) {
     return $randomString;
 }
 
-/**
- * Format date helper function
- */
-function formatDate($timestamp) {
-    return date('Y-m-d H:i:s', $timestamp);
-}
+// formatDate() is now provided by admin_utils.php
 
 /**
  * Generate a credit code

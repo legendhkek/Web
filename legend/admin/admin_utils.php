@@ -6,14 +6,24 @@
 
 /**
  * Format date in a user-friendly way
- * @param int $timestamp Unix timestamp
+ * @param int|MongoDB\BSON\UTCDateTime|string $timestamp Unix timestamp, MongoDB UTCDateTime, or date string
  * @return string Formatted date
  */
 function formatDate($timestamp) {
     if (!$timestamp) return 'Never';
     
+    // Handle MongoDB UTCDateTime objects
+    if ($timestamp instanceof MongoDB\BSON\UTCDateTime) {
+        $timestamp = $timestamp->toDateTime()->getTimestamp();
+    } elseif (is_string($timestamp) && preg_match('/^\d{4}-\d{2}-\d{2}/', $timestamp)) {
+        // Handle date strings
+        $timestamp = strtotime($timestamp);
+    } elseif (!is_numeric($timestamp)) {
+        return 'Invalid date';
+    }
+    
     $now = time();
-    $diff = $now - $timestamp;
+    $diff = $now - (int)$timestamp;
     
     if ($diff < 60) {
         return 'Just now';
